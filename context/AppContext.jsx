@@ -126,7 +126,15 @@ export const AppContextProvider = (props) => {
     }, [])
 
     useEffect(() => {
-        if (user) fetchUserData()
+        if (user) {
+            fetchUserData();
+        } else {
+            setUserData(false);
+            setCartItems({});
+            setIsSeller(false);
+            setIsAdmin(false);
+            setIsRider(false);
+        }
     }, [user])
 
     const value = {

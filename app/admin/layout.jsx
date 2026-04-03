@@ -1,9 +1,9 @@
 'use client'
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
-import { UserButton } from '@clerk/nextjs';
+import { UserButton, useAuth, useUser } from '@clerk/nextjs';
 import Image from 'next/image';
 import { assets } from '@/assets/assets';
 
@@ -17,8 +17,31 @@ const menuItems = [
 
 const AdminLayout = ({ children }) => {
     const pathname = usePathname();
-    const { user, isSeller } = useAppContext();
+    const router = useRouter();
+    const { user: contextUser, isSeller } = useAppContext();
+    const { sessionClaims, isLoaded } = useAuth();
+    const { user } = useUser();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    const role = user?.publicMetadata?.role || sessionClaims?.publicMetadata?.role || sessionClaims?.metadata?.role;
+
+    useEffect(() => {
+        console.log('Admin Layout Debug:', { isLoaded, sessionClaims, role, userEmail: user?.emailAddresses?.[0]?.emailAddress });
+        if (isLoaded && (!user || !sessionClaims || role !== 'admin')) {
+            console.log('Redirecting from admin - no access');
+            router.push('/');
+        } else {
+            console.log('Admin access granted');
+        }
+    }, [isLoaded, sessionClaims, role, router, user]);
+
+    if (!isLoaded) {
+        return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    }
+
+    if (!sessionClaims || role !== 'admin') {
+        return null;
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -43,7 +66,7 @@ const AdminLayout = ({ children }) => {
                 </div>
                 <div className="flex items-center gap-3">
                     <span className="hidden md:block text-sm text-gray-600">
-                        {user?.firstName} {user?.lastName}
+                        {contextUser?.firstName} {contextUser?.lastName}
                     </span>
                     <UserButton />
                 </div>

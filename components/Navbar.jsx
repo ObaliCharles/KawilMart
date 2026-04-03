@@ -4,18 +4,21 @@ import { assets, BagIcon, BoxIcon, CartIcon, HomeIcon } from "@/assets/assets";
 import Link from "next/link"
 import { useAppContext } from "@/context/AppContext";
 import Image from "next/image";
-import { useClerk, UserButton, useUser } from "@clerk/nextjs";
+import { useClerk, UserButton, useUser, useAuth } from "@clerk/nextjs";
 
 const Navbar = () => {
-  const { isSeller, router } = useAppContext();
+  const { isSeller, isAdmin, isRider, router } = useAppContext();
   const { user } = useUser();
+  const { isLoaded } = useAuth();
   const { openSignIn } = useClerk();
   const [mobileSearch, setMobileSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const role = user?.publicMetadata?.role;
-  const isAdmin = role === 'admin';
-  const isRider = role === 'rider';
+  // Check both context values and user metadata for roles
+  const userRole = user?.publicMetadata?.role;
+  const showAdmin = isAdmin || userRole === 'admin';
+  const showRider = isRider || userRole === 'rider';
+  const showSeller = isSeller || userRole === 'seller' || userRole === 'admin';
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -41,18 +44,18 @@ const Navbar = () => {
         <Link href="/all-products" className="hover:text-gray-900 transition text-sm">Shop</Link>
         <Link href="/all-products?filter=flash" className="hover:text-orange-600 transition text-sm text-orange-500 font-medium">⚡ Deals</Link>
         <Link href="/" className="hover:text-gray-900 transition text-sm">About Us</Link>
-        {(isSeller || isAdmin) && (
+        {(showSeller) && (
           <button onClick={() => router.push('/seller')} className="text-xs border px-4 py-1.5 rounded-full hover:bg-gray-50 transition">
             🏪 Seller
           </button>
         )}
-        {isAdmin && (
-          <button onClick={() => router.push('/admin')} className="text-xs border border-orange-400 text-orange-600 px-4 py-1.5 rounded-full hover:bg-orange-50 transition">
+        {showAdmin && (
+          <button onClick={() => { console.log('Admin button clicked'); router.push('/admin'); }} className="text-xs border border-orange-400 text-orange-600 px-4 py-1.5 rounded-full hover:bg-orange-50 transition">
             🛡️ Admin
           </button>
         )}
-        {isRider && (
-          <button onClick={() => router.push('/dashboard/rider')} className="text-xs border border-purple-400 text-purple-600 px-4 py-1.5 rounded-full hover:bg-purple-50 transition">
+        {showRider && (
+          <button onClick={() => { console.log('Rider button clicked'); router.push('/dashboard/rider'); }} className="text-xs border border-purple-400 text-purple-600 px-4 py-1.5 rounded-full hover:bg-purple-50 transition">
             🛵 Deliveries
           </button>
         )}
@@ -71,7 +74,7 @@ const Navbar = () => {
             className="outline-none text-sm w-32 bg-transparent"
           />
         </form>
-        {user
+        {isLoaded && user
           ? (
             <UserButton>
               <UserButton.MenuItems>
@@ -82,7 +85,7 @@ const Navbar = () => {
               </UserButton.MenuItems>
             </UserButton>
           )
-          : (
+          : isLoaded && (
             <button onClick={openSignIn} className="flex items-center gap-2 hover:text-gray-900 transition text-sm">
               <Image src={assets.user_icon} alt="user icon" />
               Account
@@ -93,20 +96,20 @@ const Navbar = () => {
 
       {/* Mobile Right */}
       <div className="flex items-center md:hidden gap-3">
-        {isAdmin && (
+        {showAdmin && (
           <button onClick={() => router.push('/admin')} className="text-xs border border-orange-400 text-orange-600 px-3 py-1 rounded-full">
             Admin
           </button>
         )}
-        {isRider && (
+        {showRider && (
           <button onClick={() => router.push('/dashboard/rider')} className="text-xs border border-purple-400 text-purple-600 px-3 py-1 rounded-full">
             Rider
           </button>
         )}
-        {(isSeller || isAdmin) && (
+        {showSeller && (
           <button onClick={() => router.push('/seller')} className="text-xs border px-3 py-1 rounded-full">Seller</button>
         )}
-        {user
+        {isLoaded && user
           ? (
             <UserButton>
               <UserButton.MenuItems>
@@ -123,7 +126,7 @@ const Navbar = () => {
               </UserButton.MenuItems>
             </UserButton>
           )
-          : (
+          : isLoaded && (
             <button onClick={openSignIn} className="flex items-center gap-2 hover:text-gray-900 transition text-sm">
               <Image src={assets.user_icon} alt="user icon" />
               Account
