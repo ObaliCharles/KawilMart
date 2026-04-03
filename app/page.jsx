@@ -1,29 +1,50 @@
 'use client'
-import React from "react";
-import HeaderSlider from "@/components/HeaderSlider";
-import HomeProducts from "@/components/HomeProducts";
-import Banner from "@/components/Banner";
-import NewsLetter from "@/components/NewsLetter";
-import FeaturedProduct from "@/components/FeaturedProduct";
-import FlashDeals from "@/components/FlashDeals";
-import ShopByCategory from "@/components/ShopByCategory";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import React, { Suspense, lazy } from "react";
+import Loading from "@/components/Loading";
+
+// Lazy load components
+const HeaderSlider = lazy(() => import("@/components/HeaderSlider"));
+const HomeProducts = lazy(() => import("@/components/HomeProducts"));
+const Banner = lazy(() => import("@/components/Banner"));
+const NewsLetter = lazy(() => import("@/components/NewsLetter"));
+const FeaturedProduct = lazy(() => import("@/components/FeaturedProduct"));
+const FlashDeals = lazy(() => import("@/components/FlashDeals"));
+const ShopByCategory = lazy(() => import("@/components/ShopByCategory"));
+const Navbar = lazy(() => import("@/components/Navbar"));
+const Footer = lazy(() => import("@/components/Footer"));
 
 const Home = () => {
   return (
     <>
-      <Navbar/>
+      <Suspense fallback={<Loading message="Loading navigation..." />}>
+        <Navbar/>
+      </Suspense>
       <div className="px-6 md:px-16 lg:px-32">
-        <HeaderSlider />
-        <ShopByCategory />
-        <FlashDeals />
-        <HomeProducts />
-        <FeaturedProduct />
-        <Banner />
-        <NewsLetter />
+        <Suspense fallback={<Loading message="Loading slider..." />}>
+          <HeaderSlider />
+        </Suspense>
+        <Suspense fallback={<Loading message="Loading categories..." />}>
+          <ShopByCategory />
+        </Suspense>
+        <Suspense fallback={<Loading message="Loading deals..." />}>
+          <FlashDeals />
+        </Suspense>
+        <Suspense fallback={<Loading message="Refreshing products..." />}>
+          <HomeProducts />
+        </Suspense>
+        <Suspense fallback={<Loading message="Loading featured..." />}>
+          <FeaturedProduct />
+        </Suspense>
+        <Suspense fallback={<Loading message="Loading banner..." />}>
+          <Banner />
+        </Suspense>
+        <Suspense fallback={<Loading message="Loading newsletter..." />}>
+          <NewsLetter />
+        </Suspense>
       </div>
-      <Footer />
+      <Suspense fallback={<Loading message="Loading footer..." />}>
+        <Footer />
+      </Suspense>
     </>
   );
 };

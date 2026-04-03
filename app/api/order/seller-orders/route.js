@@ -1,5 +1,5 @@
 import authSeller from "@/lib/authSeller";
-import { getAuth } from "@clerk/nextjs/server";
+import { getRequestUserId } from "@/lib/requestAuth";
 import { NextResponse } from "next/server";
 import connectDB from "@/config/db";
 import Address from "@/models/Address"; // ensures Mongoose registers Address
@@ -8,7 +8,7 @@ import Product from "@/models/Product"; // ensures Mongoose registers Product
 
 export async function GET(request) {
   try {
-    const { userId } = getAuth(request);
+    const userId = await getRequestUserId(request);
 
     const isSeller = await authSeller(userId);
     if (!isSeller) {

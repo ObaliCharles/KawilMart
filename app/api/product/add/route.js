@@ -1,6 +1,6 @@
 import connectDB from "@/config/db";
 import authSeller from "@/lib/authSeller";
-import { getAuth } from "@clerk/nextjs/server";
+import { getRequestUserId } from "@/lib/requestAuth";
 import { v2 as cloudinary } from "cloudinary";
 import { NextResponse } from "next/server";
 import Product from "@/models/Product";
@@ -14,7 +14,7 @@ cloudinary.config({
 
 export async function POST(request) {
     try {
-        const { userId } = getAuth(request);
+        const userId = await getRequestUserId(request);
 
         const isSeller = await authSeller(userId);
 
@@ -27,8 +27,11 @@ export async function POST(request) {
         const name = formData.get('name');
         const description = formData.get('description');
         const category = formData.get('category');
-        const price = formData.get('price'); // ✅ fixed: was “rice” in one version
+        const price = formData.get('price');
         const offerPrice = formData.get('offerPrice');
+        const location = formData.get('location');
+        const sellerContact = formData.get('sellerContact');
+        const sellerLocation = formData.get('sellerLocation');
 
         const files = formData.getAll('images');
 
@@ -68,6 +71,9 @@ export async function POST(request) {
             price: Number(price),
             offerPrice: Number(offerPrice),
             image,
+            location,
+            sellerContact,
+            sellerLocation,
             date: Date.now(),
         });
 

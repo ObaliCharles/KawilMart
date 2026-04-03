@@ -25,10 +25,16 @@ export const AppContextProvider = (props) => {
     const [isAdmin, setIsAdmin] = useState(false)
     const [isRider, setIsRider] = useState(false)
     const [cartItems, setCartItems] = useState({})
+    const [loadingProducts, setLoadingProducts] = useState(true)
+    const [loadingUser, setLoadingUser] = useState(false)
 
     const fetchProductData = async () => {
         try {
+            setLoadingProducts(true)
+            const startTime = Date.now()
             const { data } = await axios.get('/api/product/list')
+            const endTime = Date.now()
+            console.log(`📦 Products fetched in ${endTime - startTime}ms`)
             if (data.success) {
                 setProducts(data.products)
             } else {
@@ -36,11 +42,14 @@ export const AppContextProvider = (props) => {
             }
         } catch (error) {
             toast.error(error.message)
+        } finally {
+            setLoadingProducts(false)
         }
     }
 
     const fetchUserData = async () => {
         try {
+            setLoadingUser(true)
             const role = user.publicMetadata.role
             if (role === 'seller' || role === 'admin') setIsSeller(true)
             if (role === 'admin') setIsAdmin(true)
@@ -59,6 +68,8 @@ export const AppContextProvider = (props) => {
             }
         } catch (error) {
             toast.error(error.message)
+        } finally {
+            setLoadingUser(false)
         }
     }
 
@@ -147,7 +158,8 @@ export const AppContextProvider = (props) => {
         products, fetchProductData,
         cartItems, setCartItems,
         addToCart, updateCartQuantity,
-        getCartCount, getCartAmount
+        getCartCount, getCartAmount,
+        loadingProducts, loadingUser
     }
 
     return (

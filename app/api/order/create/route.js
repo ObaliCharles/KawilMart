@@ -2,14 +2,14 @@ import connectDB from "@/config/db";
 import Product from "@/models/Product";
 import Order from "@/models/Order";
 import User from "@/models/User";
-import { getAuth } from "@clerk/nextjs/server";
+import { getRequestUserId } from "@/lib/requestAuth";
 import { NextResponse } from "next/server";
 import { inngest } from "@/config/inngest";
 
 export async function POST(request) {
   try {
     await connectDB();
-    const { userId } = getAuth(request);
+    const userId = await getRequestUserId(request);
     const { address, items } = await request.json();
 
     if (!userId) return NextResponse.json({ success: false, message: "No userId found" });

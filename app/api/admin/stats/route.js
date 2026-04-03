@@ -1,4 +1,4 @@
-import { getAuth } from "@clerk/nextjs/server";
+import { getRequestUserId } from "@/lib/requestAuth";
 import { NextResponse } from "next/server";
 import connectDB from "@/config/db";
 import authAdmin from "@/lib/authAdmin";
@@ -8,7 +8,7 @@ import User from "@/models/User";
 
 export async function GET(request) {
     try {
-        const { userId } = getAuth(request);
+        const userId = await getRequestUserId(request);
         const isAdmin = await authAdmin(userId);
         if (!isAdmin) {
             return NextResponse.json({ success: false, message: "Unauthorized" });

@@ -6,22 +6,24 @@ import { useAuth, useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 
 const Layout = ({ children }) => {
-  const { sessionClaims, isLoaded } = useAuth()
-  const { user } = useUser()
+  const { sessionClaims, isLoaded: isAuthLoaded } = useAuth()
+  const { user, isLoaded: isUserLoaded } = useUser()
   const router = useRouter()
+  const isLoaded = isAuthLoaded && isUserLoaded
   const role = user?.publicMetadata?.role || sessionClaims?.publicMetadata?.role || sessionClaims?.metadata?.role
+  const hasSellerAccess = role === 'seller' || role === 'admin'
 
   useEffect(() => {
-    if (isLoaded && (!sessionClaims || (role !== 'seller' && role !== 'admin'))) {
-      router.push('/')
+    if (isLoaded && !hasSellerAccess) {
+      router.replace('/')
     }
-  }, [isLoaded, sessionClaims, role, router])
+  }, [hasSellerAccess, isLoaded, router])
 
   if (!isLoaded) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>
   }
 
-  if (!sessionClaims || (role !== 'seller' && role !== 'admin')) {
+  if (!hasSellerAccess) {
     return null
   }
 

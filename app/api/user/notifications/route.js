@@ -1,0 +1,50 @@
+import connectDB from "@/config/db";
+import { getRequestUserId } from "@/lib/requestAuth";
+import User from "@/models/User";
+import { NextResponse } from "next/server";
+
+export async function GET(request) {
+    try {
+        const userId = await getRequestUserId(request)
+        if (!userId) {
+            return NextResponse.json({ success: false, message: "Not authenticated" })
+        }
+
+        await connectDB()
+        const user = await User.findById(userId)
+
+        if (!user) {
+            return NextResponse.json({ success: false, message: "User not found" })
+        }
+
+        return NextResponse.json({ success: true, notifications: user.notifications || [] })
+
+    } catch (error) {
+        return NextResponse.json({ success: false, message: error.message })
+    }
+}
+
+export async function POST(request) {
+    try {
+        const userId = await getRequestUserId(request)
+        if (!userId) {
+            return NextResponse.json({ success: false, message: "Not authenticated" })
+        }
+
+        const { notificationId } = await request.json()
+
+        await connectDB()
+
+        // Mark notification as read
+        await User.findByIdAndUpdate(userId, {
+            $set: { 'notifications.$[elem].read': true }
+        }, {
+            arrayFilters: [{ 'elem._id': notificationId }]
+        })
+
+        return NextResponse.json({ success: true, message: "Notification marked as read" })
+
+    } catch (error) {
+        return NextResponse.json({ success: false, message: error.message })
+    }
+}

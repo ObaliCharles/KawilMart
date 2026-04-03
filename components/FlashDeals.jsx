@@ -23,11 +23,8 @@ const FlashDeals = () => {
 
   const pad = (n) => String(n).padStart(2, '0');
 
-  // Flash deals = products with biggest discount (price - offerPrice)
-  const flashDeals = [...products]
-    .filter(p => p.price && p.offerPrice && p.price > p.offerPrice)
-    .sort((a, b) => (b.price - b.offerPrice) / b.price - (a.price - a.offerPrice) / a.price)
-    .slice(0, 6);
+  // Get actual flash deal products
+  const flashDeals = products.filter(p => p.isFlashDeal && (!p.flashDealEndDate || new Date(p.flashDealEndDate) > new Date())).slice(0, 6);
 
   if (flashDeals.length === 0) return null;
 

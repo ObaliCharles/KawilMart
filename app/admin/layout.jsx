@@ -6,41 +6,82 @@ import { useAppContext } from '@/context/AppContext';
 import { UserButton, useAuth, useUser } from '@clerk/nextjs';
 import Image from 'next/image';
 import { assets } from '@/assets/assets';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const menuItems = [
     { name: 'Dashboard', path: '/admin', icon: '📊' },
     { name: 'All Orders', path: '/admin/orders', icon: '📦' },
     { name: 'Products', path: '/admin/products', icon: '🛍️' },
     { name: 'Users & Roles', path: '/admin/users', icon: '👥' },
+    { name: 'Management', path: '/admin/management', icon: '⚙️' },
+    { name: 'Promotions', path: '/admin/promotions', icon: '🎯' },
     { name: 'Analytics', path: '/admin/analytics', icon: '📈' },
 ];
 
 const AdminLayout = ({ children }) => {
     const pathname = usePathname();
     const router = useRouter();
-    const { user: contextUser, isSeller } = useAppContext();
-    const { sessionClaims, isLoaded } = useAuth();
-    const { user } = useUser();
+    const { user: contextUser } = useAppContext();
+    const { sessionClaims, isLoaded: isAuthLoaded, getToken } = useAuth();
+    const { user, isLoaded: isUserLoaded } = useUser();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const isLoaded = isAuthLoaded && isUserLoaded;
 
     const role = user?.publicMetadata?.role || sessionClaims?.publicMetadata?.role || sessionClaims?.metadata?.role;
+    const hasAdminAccess = role === 'admin';
 
     useEffect(() => {
         console.log('Admin Layout Debug:', { isLoaded, sessionClaims, role, userEmail: user?.emailAddresses?.[0]?.emailAddress });
-        if (isLoaded && (!user || !sessionClaims || role !== 'admin')) {
+        if (isLoaded && !hasAdminAccess) {
             console.log('Redirecting from admin - no access');
-            router.push('/');
+            router.replace('/');
         } else {
             console.log('Admin access granted');
         }
-    }, [isLoaded, sessionClaims, role, router, user]);
+    }, [hasAdminAccess, isLoaded, role, router, sessionClaims, user]);
 
     if (!isLoaded) {
         return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
     }
 
-    if (!sessionClaims || role !== 'admin') {
-        return null;
+    if (!hasAdminAccess) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+                    <div className="text-6xl mb-4">🔒</div>
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Admin Access Required</h1>
+                    <p className="text-gray-600 mb-6">
+                        You need admin privileges to access this area.
+                        {role && <span className="block mt-2 text-sm">Current role: <strong>{role}</strong></span>}
+                    </p>
+                    <button
+                        onClick={async () => {
+                            try {
+                                const token = await getToken();
+                                const { data } = await axios.post('/api/admin/set-admin', {}, {
+                                    headers: { Authorization: `Bearer ${token}` }
+                                });
+                                if (data.success) {
+                                    toast.success(data.message);
+                                    window.location.reload();
+                                } else {
+                                    toast.error(data.message);
+                                }
+                            } catch (err) {
+                                toast.error('Failed to set admin role');
+                            }
+                        }}
+                        className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition font-medium"
+                    >
+                        Set Myself as Admin
+                    </button>
+                    <p className="text-xs text-gray-500 mt-4">
+                        This will grant you admin access to the system.
+                    </p>
+                </div>
+            </div>
+        );
     }
 
     return (

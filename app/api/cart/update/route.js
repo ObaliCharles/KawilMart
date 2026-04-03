@@ -1,13 +1,16 @@
 import connectDB from "@/config/db"
 import User from "@/models/User"
-import { getAuth, clerkClient } from "@clerk/nextjs/server"
+import { clerkClient } from "@clerk/nextjs/server"
+import { getRequestUserId } from "@/lib/requestAuth"
 import { NextResponse } from "next/server"
 
 
 export async function POST(request) {
     try {
-
-        const  { userId } = getAuth(request)
+        const userId = await getRequestUserId(request)
+        if (!userId) {
+            return NextResponse.json({ success: false, message: "Not authenticated" })
+        }
 
         const { cartData } = await request.json()
 

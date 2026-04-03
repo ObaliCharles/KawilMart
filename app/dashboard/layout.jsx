@@ -4,26 +4,28 @@ import { useAuth, useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 
 const RiderLayout = ({ children }) => {
-  const { sessionClaims, isLoaded } = useAuth();
-  const { user } = useUser();
+  const { sessionClaims, isLoaded: isAuthLoaded } = useAuth();
+  const { user, isLoaded: isUserLoaded } = useUser();
   const router = useRouter();
+  const isLoaded = isAuthLoaded && isUserLoaded;
   const role = user?.publicMetadata?.role || sessionClaims?.publicMetadata?.role || sessionClaims?.metadata?.role;
+  const hasRiderAccess = role === 'rider' || role === 'admin';
 
   useEffect(() => {
     console.log('Rider Layout Debug:', { isLoaded, sessionClaims, role });
-    if (isLoaded && (!sessionClaims || (role !== 'rider' && role !== 'admin'))) {
+    if (isLoaded && !hasRiderAccess) {
       console.log('Redirecting from rider - no access');
-      router.push('/');
+      router.replace('/');
     } else {
       console.log('Rider access granted');
     }
-  }, [isLoaded, sessionClaims, role, router]);
+  }, [hasRiderAccess, isLoaded, role, router, sessionClaims]);
 
   if (!isLoaded) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  if (!sessionClaims || (role !== 'rider' && role !== 'admin')) {
+  if (!hasRiderAccess) {
     return null;
   }
 

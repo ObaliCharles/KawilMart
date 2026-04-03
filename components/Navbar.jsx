@@ -5,14 +5,18 @@ import Link from "next/link"
 import { useAppContext } from "@/context/AppContext";
 import Image from "next/image";
 import { useClerk, UserButton, useUser, useAuth } from "@clerk/nextjs";
+import axios from 'axios';
+import { useEffect } from 'react';
 
 const Navbar = () => {
   const { isSeller, isAdmin, isRider, router } = useAppContext();
   const { user } = useUser();
-  const { isLoaded } = useAuth();
+  const { isLoaded, getToken } = useAuth();
   const { openSignIn } = useClerk();
   const [mobileSearch, setMobileSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Check both context values and user metadata for roles
   const userRole = user?.publicMetadata?.role;
@@ -28,6 +32,27 @@ const Navbar = () => {
       setMobileSearch(false);
     }
   };
+
+  const fetchNotifications = async () => {
+    if (user) {
+      try {
+        const token = await getToken();
+        const { data } = await axios.get('/api/user/notifications', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (data.success) {
+          setNotifications(data.notifications);
+          setUnreadCount(data.notifications.filter(n => !n.read).length);
+        }
+      } catch (error) {
+        console.error('Failed to fetch notifications:', error);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [user]);
 
   return (
     <nav className="flex items-center justify-between px-6 md:px-16 lg:px-32 py-3 border-b border-gray-300 text-gray-700 bg-white sticky top-0 z-30">
@@ -76,14 +101,24 @@ const Navbar = () => {
         </form>
         {isLoaded && user
           ? (
-            <UserButton>
-              <UserButton.MenuItems>
-                <UserButton.Action label="Cart" labelIcon={<CartIcon />} onClick={() => router.push('/cart')} />
-              </UserButton.MenuItems>
-              <UserButton.MenuItems>
-                <UserButton.Action label="My Orders" labelIcon={<BagIcon />} onClick={() => router.push('/my-orders')} />
-              </UserButton.MenuItems>
-            </UserButton>
+            <div className="relative">
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
+              <UserButton>
+                <UserButton.MenuItems>
+                  <UserButton.Action label="Cart" labelIcon={<CartIcon />} onClick={() => router.push('/cart')} />
+                </UserButton.MenuItems>
+                <UserButton.MenuItems>
+                  <UserButton.Action label="My Orders" labelIcon={<BagIcon />} onClick={() => router.push('/my-orders')} />
+                </UserButton.MenuItems>
+                <UserButton.MenuItems>
+                  <UserButton.Action label="Notifications" labelIcon="🔔" onClick={() => router.push('/notifications')} />
+                </UserButton.MenuItems>
+              </UserButton>
+            </div>
           )
           : isLoaded && (
             <button onClick={openSignIn} className="flex items-center gap-2 hover:text-gray-900 transition text-sm">

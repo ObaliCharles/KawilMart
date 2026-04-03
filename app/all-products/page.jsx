@@ -28,7 +28,7 @@ const sortOptions = [
 ];
 
 function AllProductsInner() {
-  const { products } = useAppContext();
+  const { products, loadingProducts } = useAppContext();
   const searchParams = useSearchParams();
 
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -200,7 +200,12 @@ function AllProductsInner() {
 
           {/* Products */}
           <div className="flex-1">
-            {filteredProducts.length === 0 ? (
+            {loadingProducts ? (
+              <div className="flex flex-col items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-16 w-16 border-4 border-t-orange-300 border-gray-200 mb-4"></div>
+                <p className="text-gray-600 text-lg">Refreshing products...</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                 <span className="text-5xl mb-4">🔍</span>
                 <p className="text-lg font-medium">No products found</p>

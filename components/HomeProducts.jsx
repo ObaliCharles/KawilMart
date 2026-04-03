@@ -1,10 +1,15 @@
 import React from "react";
 import ProductCard from "./ProductCard";
 import { useAppContext } from "@/context/AppContext";
+import Loading from "./Loading";
 
 const HomeProducts = () => {
 
-  const { products, router } = useAppContext()
+  const { products, router, loadingProducts } = useAppContext()
+
+  if (loadingProducts) {
+    return <Loading message="Refreshing products..." />
+  }
 
   return (
     <div className="flex flex-col items-center pt-14">

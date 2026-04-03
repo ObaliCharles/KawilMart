@@ -1,4 +1,4 @@
-import { getAuth } from "@clerk/nextjs/server";
+import { getRequestUserId } from "@/lib/requestAuth";
 import { NextResponse } from "next/server";
 import connectDB from "@/config/db";
 import Order from "@/models/Order";
@@ -8,7 +8,7 @@ import Address from "@/models/Address"; // Import so Mongoose registers the mode
 export async function GET(request) {
   try {
     // Get the logged-in userId
-    const { userId } = getAuth(request);
+    const userId = await getRequestUserId(request);
     if (!userId) {
       return NextResponse.json({ success: false, message: "User not authenticated" });
     }

@@ -28,8 +28,15 @@ export default clerkMiddleware(async (auth, req) => {
         isSellerRoute: isSellerRoute(req)
     });
 
+    const isProtectedRoute = isAdminRoute(req) || isRiderRoute(req) || isSellerRoute(req);
+
+    if (isProtectedRoute && !userId) {
+        console.log('Middleware: no server session found, deferring auth to route/layout checks');
+        return;
+    }
+
     if (isAdminRoute(req) && !hasAdminAccess) {
-        console.log('Blocking admin access');
+        console.log('Blocking admin access - hasAdminAccess:', hasAdminAccess, 'userId:', userId, 'role:', role);
         return NextResponse.redirect(new URL('/', req.url));
     }
 

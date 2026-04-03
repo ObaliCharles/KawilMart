@@ -85,9 +85,9 @@ const Product = () => {
                         {productData.description}
                     </p>
                     <p className="text-3xl font-medium mt-6">
-                        ${productData.offerPrice}
+                        UGX {productData.offerPrice.toLocaleString()}
                         <span className="text-base font-normal text-gray-800/60 line-through ml-2">
-                            ${productData.price}
+                            UGX {productData.price.toLocaleString()}
                         </span>
                     </p>
                     <hr className="bg-gray-600 my-6" />
@@ -108,9 +108,55 @@ const Product = () => {
                                         {productData.category}
                                     </td>
                                 </tr>
+                                <tr>
+                                    <td className="text-gray-600 font-medium">Location</td>
+                                    <td className="text-gray-800/50">
+                                        {productData.location}
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Seller Information */}
+                    <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+                        <h3 className="text-lg font-medium text-gray-800 mb-3">Seller Information</h3>
+                        <div className="space-y-2 text-sm">
+                            <p><strong>Contact:</strong> {productData.sellerContact}</p>
+                            <p><strong>Business Location:</strong> {productData.sellerLocation}</p>
+                            <p><strong>Product Location:</strong> {productData.location}</p>
+                        </div>
+                    </div>
+
+                    {/* Reviews Section */}
+                    {productData.reviews && productData.reviews.length > 0 && (
+                        <div className="mt-8">
+                            <h3 className="text-lg font-medium text-gray-800 mb-4">Customer Reviews ({productData.reviews.length})</h3>
+                            <div className="space-y-4">
+                                {productData.reviews.map((review, index) => (
+                                    <div key={index} className="border border-gray-200 rounded-lg p-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="font-medium">{review.userName}</span>
+                                            <div className="flex items-center gap-1">
+                                                {[...Array(5)].map((_, i) => (
+                                                    <Image
+                                                        key={i}
+                                                        src={i < review.rating ? assets.star_icon : assets.star_dull_icon}
+                                                        alt="star"
+                                                        className="h-4 w-4"
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <p className="text-gray-600 text-sm">{review.comment}</p>
+                                        <p className="text-xs text-gray-400 mt-2">
+                                            {new Date(review.date).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="flex items-center mt-10 gap-4">
                         <button onClick={() => addToCart(productData._id)} className="w-full py-3.5 bg-gray-100 text-gray-800/80 hover:bg-gray-200 transition">

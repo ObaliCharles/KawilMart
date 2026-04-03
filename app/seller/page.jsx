@@ -17,6 +17,9 @@ const AddProduct = () => {
   const [category, setCategory] = useState('Earphone');
   const [price, setPrice] = useState('');
   const [offerPrice, setOfferPrice] = useState('');
+  const [location, setLocation] = useState('');
+  const [sellerContact, setSellerContact] = useState('');
+  const [sellerLocation, setSellerLocation] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,6 +31,9 @@ const AddProduct = () => {
     formData.append('category', category)
     formData.append('price', price)
     formData.append('offerPrice', offerPrice)
+    formData.append('location', location)
+    formData.append('sellerContact', sellerContact)
+    formData.append('sellerLocation', sellerLocation)
 
     for (let i = 0; i < files.length; i++) {
       formData.append('images', files[i])
@@ -47,6 +53,9 @@ const AddProduct = () => {
         setCategory('');
         setPrice('');
         setOfferPrice('')
+        setLocation('');
+        setSellerContact('');
+        setSellerLocation('');
       } else{
         toast.error(data.message);
       }
@@ -165,6 +174,48 @@ const AddProduct = () => {
               required
             />
           </div>
+        </div>
+        <div className="flex flex-col gap-1 max-w-md">
+          <label className="text-base font-medium" htmlFor="location">
+            Product Location
+          </label>
+          <input
+            id="location"
+            type="text"
+            placeholder="e.g., Kampala, Uganda"
+            className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40"
+            onChange={(e) => setLocation(e.target.value)}
+            value={location}
+            required
+          />
+        </div>
+        <div className="flex flex-col gap-1 max-w-md">
+          <label className="text-base font-medium" htmlFor="seller-contact">
+            Your Contact Number
+          </label>
+          <input
+            id="seller-contact"
+            type="tel"
+            placeholder="+256 XXX XXX XXX"
+            className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40"
+            onChange={(e) => setSellerContact(e.target.value)}
+            value={sellerContact}
+            required
+          />
+        </div>
+        <div className="flex flex-col gap-1 max-w-md">
+          <label className="text-base font-medium" htmlFor="seller-location">
+            Your Business Location
+          </label>
+          <input
+            id="seller-location"
+            type="text"
+            placeholder="e.g., Nakasero, Kampala"
+            className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40"
+            onChange={(e) => setSellerLocation(e.target.value)}
+            value={sellerLocation}
+            required
+          />
         </div>
         <button type="submit" className="px-8 py-2.5 bg-orange-600 text-white font-medium rounded">
           ADD

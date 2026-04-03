@@ -1,4 +1,5 @@
-import { getAuth, clerkClient } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/nextjs/server";
+import { getRequestUserId } from "@/lib/requestAuth";
 import { NextResponse } from "next/server";
 import authAdmin from "@/lib/authAdmin";
 import connectDB from "@/config/db";
@@ -6,7 +7,7 @@ import User from "@/models/User";
 
 export async function GET(request) {
     try {
-        const { userId } = getAuth(request);
+        const userId = await getRequestUserId(request);
         const isAdmin = await authAdmin(userId);
         if (!isAdmin) return NextResponse.json({ success: false, message: "Unauthorized" });
 
@@ -26,6 +27,18 @@ export async function GET(request) {
             role: u.publicMetadata.role || 'buyer',
             createdAt: u.createdAt,
             cartItems: dbMap[u.id]?.cartItems || {},
+            // Database fields
+            businessName: dbMap[u.id]?.businessName,
+            businessLocation: dbMap[u.id]?.businessLocation,
+            phoneNumber: dbMap[u.id]?.phoneNumber,
+            businessLicense: dbMap[u.id]?.businessLicense,
+            taxId: dbMap[u.id]?.taxId,
+            vehicleType: dbMap[u.id]?.vehicleType,
+            licensePlate: dbMap[u.id]?.licensePlate,
+            driversLicense: dbMap[u.id]?.driversLicense,
+            isVerified: dbMap[u.id]?.isVerified || false,
+            notifications: dbMap[u.id]?.notifications || [],
+            messages: dbMap[u.id]?.messages || [],
         }));
 
         return NextResponse.json({ success: true, users });
@@ -36,7 +49,7 @@ export async function GET(request) {
 
 export async function POST(request) {
     try {
-        const { userId } = getAuth(request);
+        const userId = await getRequestUserId(request);
         const isAdmin = await authAdmin(userId);
         if (!isAdmin) return NextResponse.json({ success: false, message: "Unauthorized" });
 

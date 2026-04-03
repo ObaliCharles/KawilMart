@@ -13,9 +13,9 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <ClerkProvider> 
-      <html lang="en">
-        <body className={`${outfit.className} antialiased text-gray-700`} >
+    <html lang="en">
+      <body className={`${outfit.className} antialiased text-gray-700`} >
+        <ClerkProvider signInUrl="/sign-in" signUpUrl="/sign-up" afterSignOutUrl="/">
           <Toaster
             position="top-right"
             reverseOrder={false}
@@ -65,8 +65,8 @@ export default function RootLayout({ children }) {
           <AppContextProvider>
             {children}
           </AppContextProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }

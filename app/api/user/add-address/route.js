@@ -1,14 +1,17 @@
 import connectDB from "@/config/db";
-import { getAuth } from "@clerk/nextjs/server";
+import { getRequestUserId } from "@/lib/requestAuth";
 import { NextResponse } from "next/server";
 import Address from "@/models/Address";
 
 
 export async function POST(request) {
     try {
-        
-        const  { userId } = getAuth(request)
-        const  {address}  = await request.json()
+        const userId = await getRequestUserId(request)
+        if (!userId) {
+            return NextResponse.json({ success: false, message: "Not authenticated" })
+        }
+
+        const { address } = await request.json()
 
         await connectDB()
         const newAddress = await Address.create({...address,userId})

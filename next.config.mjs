@@ -13,7 +13,19 @@ const nextConfig = {
                 hostname: 'raw.githubusercontent.com',
                 pathname: '**',
             },
+            {
+                protocol: 'https',
+                hostname: 'img.clerk.com',
+                pathname: '**',
+            },
         ],
+        formats: ['image/webp', 'image/avif'],
+    },
+    experimental: {
+        optimizePackageImports: ['@clerk/nextjs', 'react-hot-toast'],
+    },
+    compiler: {
+        removeConsole: process.env.NODE_ENV === 'production',
     },
 };
 
