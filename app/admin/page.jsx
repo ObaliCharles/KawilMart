@@ -5,14 +5,14 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { AdminDashboardPageSkeleton } from '@/components/dashboard/DashboardSkeletons';
 
-const StatCard = ({ icon, label, value, sub, color }) => (
-    <div className={`bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-center gap-4`}>
-        <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl ${color}`}>
+const StatCard = ({ icon, label, value, sub, color, valueClassName = '' }) => (
+    <div className={`bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex items-center gap-3 sm:p-5 sm:gap-4`}>
+        <div className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl sm:h-14 sm:w-14 sm:text-2xl ${color}`}>
             {icon}
         </div>
-        <div>
-            <p className="text-sm text-gray-500">{label}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-0.5">{value}</p>
+        <div className="min-w-0">
+            <p className="text-xs text-gray-500 sm:text-sm">{label}</p>
+            <p className={`mt-0.5 font-bold leading-tight text-gray-900 ${valueClassName || 'text-lg sm:text-2xl'}`}>{value}</p>
             {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
         </div>
     </div>
@@ -80,6 +80,7 @@ export default function AdminDashboard() {
                     value={formatCurrency(stats.totalRevenue)}
                     sub="All time earnings"
                     color="bg-green-50"
+                    valueClassName="text-[15px] break-words sm:text-2xl"
                 />
                 <StatCard
                     icon="📦"

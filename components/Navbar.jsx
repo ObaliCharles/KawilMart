@@ -55,13 +55,11 @@ const Navbar = () => {
   const showAdmin = isAdmin || userRole === 'admin';
   const showRider = isRider || userRole === 'rider';
   const showSeller = isSeller || userRole === 'seller' || userRole === 'admin';
-  const mobileDashboardLink = showAdmin
-    ? { href: '/admin', label: 'Admin', className: 'border-orange-400 text-orange-600' }
-    : showRider
-      ? { href: '/dashboard/rider', label: 'Rider', className: 'border-purple-400 text-purple-600' }
-      : showSeller
-        ? { href: '/seller', label: 'Seller', className: 'border-gray-300 text-gray-700' }
-        : null;
+  const mobileDashboardLinks = [
+    showSeller ? { href: '/seller', label: 'Seller', className: 'border-gray-300 text-gray-700' } : null,
+    showAdmin ? { href: '/admin', label: 'Admin', className: 'border-orange-400 text-orange-600' } : null,
+    showRider ? { href: '/dashboard/rider', label: 'Deliveries', className: 'border-purple-400 text-purple-600' } : null,
+  ].filter(Boolean);
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -174,7 +172,7 @@ const Navbar = () => {
   );
 
   return (
-    <nav className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-300 bg-white px-4 py-3 text-gray-700 sm:px-6 md:px-16 lg:px-32">
+    <nav className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-y-2 border-b border-gray-300 bg-white px-4 py-3 text-gray-700 sm:px-6 md:px-16 lg:px-32">
       <Link href="/" prefetch className="block" onClick={() => beginLinkNavigation("/")}>
         <Image
           className="w-24 cursor-pointer sm:w-28 md:w-32"
@@ -256,49 +254,56 @@ const Navbar = () => {
       </div>
 
       {/* Mobile Right */}
-      <div className="flex min-w-0 items-center gap-2 md:hidden">
-        {mobileDashboardLink && (
-          <button
-            onClick={() => navigate(mobileDashboardLink.href)}
-            className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${mobileDashboardLink.className}`}
-          >
-            {mobileDashboardLink.label}
-          </button>
+      <div className={`flex w-full items-center gap-2 md:hidden ${mobileDashboardLinks.length > 0 ? 'justify-between' : 'justify-end'}`}>
+        {mobileDashboardLinks.length > 0 && (
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {mobileDashboardLinks.map((link) => (
+              <button
+                key={link.href}
+                onClick={() => navigate(link.href)}
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium leading-none ${link.className}`}
+              >
+                {link.label}
+              </button>
+            ))}
+          </div>
         )}
-        <button
-          onClick={openCart}
-          onMouseEnter={() => prefetchRoute('/cart')}
-          onFocus={() => prefetchRoute('/cart')}
-          className="relative flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white transition hover:border-orange-300 hover:bg-orange-50 sm:h-10 sm:w-10"
-          aria-label="Open cart"
-        >
-          <CartIcon />
-          {cartCount > 0 && (
-            <span className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-orange-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-              {formatBadgeCount(cartCount)}
-            </span>
-          )}
-        </button>
-        {!clerkReady ? (
-          <NavbarUserSkeleton />
-        ) : isDesktopViewport === null ? (
-          <NavbarUserSkeleton />
-        ) : user
-          ? (
-            !isDesktopViewport
-              ? renderUserButton({
-                  includeMobileLinks: true,
-                  badgeClassName: "pointer-events-none absolute right-0 top-0 z-20 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm",
-                })
-              : null
-          )
-          : (
-            <button onClick={openSignIn} className="flex items-center gap-2 hover:text-gray-900 transition text-sm">
-              <Image src={assets.user_icon} alt="user icon" />
-              Account
-            </button>
-          )
-        }
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openCart}
+            onMouseEnter={() => prefetchRoute('/cart')}
+            onFocus={() => prefetchRoute('/cart')}
+            className="relative flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white transition hover:border-orange-300 hover:bg-orange-50 sm:h-10 sm:w-10"
+            aria-label="Open cart"
+          >
+            <CartIcon />
+            {cartCount > 0 && (
+              <span className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-orange-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                {formatBadgeCount(cartCount)}
+              </span>
+            )}
+          </button>
+          {!clerkReady ? (
+            <NavbarUserSkeleton />
+          ) : isDesktopViewport === null ? (
+            <NavbarUserSkeleton />
+          ) : user
+            ? (
+              !isDesktopViewport
+                ? renderUserButton({
+                    includeMobileLinks: true,
+                    badgeClassName: "pointer-events-none absolute right-0 top-0 z-20 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm",
+                  })
+                : null
+            )
+            : (
+              <button onClick={openSignIn} className="flex items-center gap-2 hover:text-gray-900 transition text-sm">
+                <Image src={assets.user_icon} alt="user icon" />
+                Account
+              </button>
+            )
+          }
+        </div>
       </div>
     </nav>
   );

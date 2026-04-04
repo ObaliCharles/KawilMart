@@ -141,7 +141,7 @@ export default function AdminAnalytics() {
                         ].map(item => (
                             <div key={item.label} className={`${item.bg} rounded-xl p-4`}>
                                 <span className="text-2xl">{item.icon}</span>
-                                <p className="text-2xl font-bold text-gray-900 mt-1">{item.value}</p>
+                                <p className={`mt-1 font-bold text-gray-900 leading-tight ${item.label === 'Total Revenue' ? 'text-[15px] break-words sm:text-2xl' : 'text-xl sm:text-2xl'}`}>{item.value}</p>
                                 <p className="text-xs text-gray-500">{item.label}</p>
                             </div>
                         ))}
