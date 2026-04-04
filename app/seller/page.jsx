@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { assets } from "@/assets/assets";
 import Image from "next/image";
 import { useAppContext } from "@/context/AppContext";
@@ -9,7 +9,7 @@ import { useSearchParams } from "next/navigation";
 import { SellerProductFormSkeleton } from "@/components/dashboard/DashboardSkeletons";
 
 
-const AddProduct = () => {
+const AddProductInner = () => {
 
   const { getToken, router, authReady, user } = useAppContext();
   const searchParams = useSearchParams();
@@ -350,5 +350,11 @@ const AddProduct = () => {
     </div>
   );
 };
+
+const AddProduct = () => (
+  <Suspense fallback={<SellerProductFormSkeleton />}>
+    <AddProductInner />
+  </Suspense>
+);
 
 export default AddProduct;

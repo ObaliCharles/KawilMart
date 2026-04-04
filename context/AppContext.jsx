@@ -1,6 +1,6 @@
 'use client'
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, startTransition, useCallback, useContext, useEffect, useState } from "react";
+import { Suspense, createContext, startTransition, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import axios from "axios";
 import { toast } from 'react-hot-toast';
@@ -13,13 +13,22 @@ export const useAppContext = () => {
     return useContext(AppContext)
 }
 
+const RouteStateSync = ({ onRouteSettled }) => {
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+    const searchParamsKey = searchParams.toString()
+
+    useEffect(() => {
+        onRouteSettled()
+    }, [onRouteSettled, pathname, searchParamsKey])
+
+    return null
+}
+
 export const AppContextProvider = (props) => {
 
     const currency = 'UGX '
     const router = useRouter()
-    const pathname = usePathname()
-    const searchParams = useSearchParams()
-    const searchParamsKey = searchParams.toString()
 
     const { user, isLoaded: isUserLoaded } = useUser()
     const { getToken, isLoaded: isAuthLoaded } = useAuth()
@@ -387,6 +396,10 @@ export const AppContextProvider = (props) => {
         router.prefetch(href)
     }
 
+    const handleRouteSettled = useCallback(() => {
+        setIsRouteLoading(false)
+    }, [])
+
     useEffect(() => {
         const hydrated = hydrateCachedProducts()
         fetchProductData({ background: hydrated })
@@ -424,10 +437,6 @@ export const AppContextProvider = (props) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authReady, user])
 
-    useEffect(() => {
-        setIsRouteLoading(false)
-    }, [pathname, searchParamsKey])
-
     const value = {
         user, getToken,
         authReady,
@@ -454,6 +463,9 @@ export const AppContextProvider = (props) => {
 
     return (
         <AppContext.Provider value={value}>
+            <Suspense fallback={null}>
+                <RouteStateSync onRouteSettled={handleRouteSettled} />
+            </Suspense>
             {props.children}
         </AppContext.Provider>
     )

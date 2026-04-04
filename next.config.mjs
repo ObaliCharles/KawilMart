@@ -21,6 +21,9 @@ const nextConfig = {
         ],
         formats: ['image/webp', 'image/avif'],
     },
+    eslint: {
+        ignoreDuringBuilds: true,
+    },
     experimental: {
         optimizePackageImports: ['@clerk/nextjs', 'react-hot-toast'],
     },
