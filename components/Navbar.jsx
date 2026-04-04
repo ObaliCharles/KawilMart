@@ -23,6 +23,12 @@ const formatBadgeCount = (count) => {
   return String(count);
 };
 
+const NotificationIcon = () => (
+  <svg className="w-5 h-5 text-gray-800" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 5a4 4 0 0 0-4 4v2.9c0 .5-.2 1-.5 1.4L6 15h12l-1.5-1.7c-.3-.4-.5-.9-.5-1.4V9a4 4 0 0 0-4-4Zm0 14a2.5 2.5 0 0 0 2.4-2H9.6A2.5 2.5 0 0 0 12 19Z" />
+  </svg>
+);
+
 const Navbar = () => {
   const {
     isSeller,
@@ -41,14 +47,21 @@ const Navbar = () => {
   const { openSignIn } = useClerk();
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isDesktopViewport, setIsDesktopViewport] = useState(null);
   const clerkReady = isUserLoaded && isAuthLoaded;
   const cartCount = getCartCount();
-
   // Check both context values and user metadata for roles
   const userRole = resolvedRole || user?.publicMetadata?.role;
   const showAdmin = isAdmin || userRole === 'admin';
   const showRider = isRider || userRole === 'rider';
   const showSeller = isSeller || userRole === 'seller' || userRole === 'admin';
+  const mobileDashboardLink = showAdmin
+    ? { href: '/admin', label: 'Admin', className: 'border-orange-400 text-orange-600' }
+    : showRider
+      ? { href: '/dashboard/rider', label: 'Rider', className: 'border-purple-400 text-purple-600' }
+      : showSeller
+        ? { href: '/seller', label: 'Seller', className: 'border-gray-300 text-gray-700' }
+        : null;
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -56,6 +69,33 @@ const Navbar = () => {
       setSearchQuery('');
     }
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const syncViewport = (event) => {
+      setIsDesktopViewport(event.matches);
+    };
+
+    setIsDesktopViewport(mediaQuery.matches);
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncViewport);
+
+      return () => {
+        mediaQuery.removeEventListener('change', syncViewport);
+      };
+    }
+
+    mediaQuery.addListener(syncViewport);
+
+    return () => {
+      mediaQuery.removeListener(syncViewport);
+    };
+  }, []);
 
   useEffect(() => {
     if (!clerkReady) {
@@ -110,11 +150,34 @@ const Navbar = () => {
     navigate('/cart');
   };
 
+  const renderUserButton = ({ showName = false, includeMobileLinks = false, badgeClassName }) => (
+    <div className="relative inline-flex items-center justify-center pr-1 pt-1">
+      {unreadNotificationsCount > 0 && (
+        <span className={badgeClassName}>
+          {formatBadgeCount(unreadNotificationsCount)}
+        </span>
+      )}
+      <UserButton
+        showName={showName}
+        userProfileMode="modal"
+        appearance={userButtonAppearance}
+      >
+        <UserButton.MenuItems>
+          {includeMobileLinks ? <UserButton.Link label="Home" labelIcon={<HomeIcon />} href="/" /> : null}
+          {includeMobileLinks ? <UserButton.Link label="Products" labelIcon={<BoxIcon />} href="/all-products" /> : null}
+          <UserButton.Link label="Cart" labelIcon={<CartIcon />} href="/cart" />
+          <UserButton.Link label="My Orders" labelIcon={<BagIcon />} href="/my-orders" />
+          <UserButton.Link label="Notifications" labelIcon={<NotificationIcon />} href="/notifications" />
+        </UserButton.MenuItems>
+      </UserButton>
+    </div>
+  );
+
   return (
-    <nav className="flex items-center justify-between px-6 md:px-16 lg:px-32 py-3 border-b border-gray-300 text-gray-700 bg-white sticky top-0 z-30">
+    <nav className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-300 bg-white px-4 py-3 text-gray-700 sm:px-6 md:px-16 lg:px-32">
       <Link href="/" prefetch className="block" onClick={() => beginLinkNavigation("/")}>
         <Image
-          className="cursor-pointer w-28 md:w-32"
+          className="w-24 cursor-pointer sm:w-28 md:w-32"
           src={assets.logo}
           alt="logo"
         />
@@ -172,26 +235,16 @@ const Navbar = () => {
         </button>
         {!clerkReady ? (
           <NavbarUserSkeleton showName />
+        ) : isDesktopViewport === null ? (
+          <NavbarUserSkeleton showName />
         ) : user
           ? (
-            <div className="relative inline-flex items-center justify-center pr-1 pt-1">
-              {unreadNotificationsCount > 0 && (
-                <span className="pointer-events-none absolute right-0 top-0 z-20 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                  {formatBadgeCount(unreadNotificationsCount)}
-                </span>
-              )}
-              <UserButton
-                showName
-                userProfileMode="modal"
-                appearance={userButtonAppearance}
-              >
-                <UserButton.MenuItems>
-                  <UserButton.Action label="Cart" labelIcon={<CartIcon />} onClick={() => navigate('/cart')} />
-                  <UserButton.Action label="My Orders" labelIcon={<BagIcon />} onClick={() => navigate('/my-orders')} />
-                  <UserButton.Action label="Notifications" labelIcon="🔔" onClick={() => navigate('/notifications')} />
-                </UserButton.MenuItems>
-              </UserButton>
-            </div>
+            isDesktopViewport
+              ? renderUserButton({
+                  showName: true,
+                  badgeClassName: "pointer-events-none absolute right-0 top-0 z-20 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm",
+                })
+              : null
           )
           : (
             <button onClick={openSignIn} className="flex items-center gap-2 hover:text-gray-900 transition text-sm">
@@ -203,25 +256,20 @@ const Navbar = () => {
       </div>
 
       {/* Mobile Right */}
-      <div className="flex items-center md:hidden gap-3">
-        {showAdmin && (
-          <button onClick={() => navigate('/admin')} className="text-xs border border-orange-400 text-orange-600 px-3 py-1 rounded-full">
-            Admin
+      <div className="flex min-w-0 items-center gap-2 md:hidden">
+        {mobileDashboardLink && (
+          <button
+            onClick={() => navigate(mobileDashboardLink.href)}
+            className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${mobileDashboardLink.className}`}
+          >
+            {mobileDashboardLink.label}
           </button>
-        )}
-        {showRider && (
-          <button onClick={() => navigate('/dashboard/rider')} className="text-xs border border-purple-400 text-purple-600 px-3 py-1 rounded-full">
-            Rider
-          </button>
-        )}
-        {showSeller && (
-          <button onClick={() => navigate('/seller')} className="text-xs border px-3 py-1 rounded-full">Seller</button>
         )}
         <button
           onClick={openCart}
           onMouseEnter={() => prefetchRoute('/cart')}
           onFocus={() => prefetchRoute('/cart')}
-          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white transition hover:border-orange-300 hover:bg-orange-50"
+          className="relative flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white transition hover:border-orange-300 hover:bg-orange-50 sm:h-10 sm:w-10"
           aria-label="Open cart"
         >
           <CartIcon />
@@ -233,26 +281,16 @@ const Navbar = () => {
         </button>
         {!clerkReady ? (
           <NavbarUserSkeleton />
+        ) : isDesktopViewport === null ? (
+          <NavbarUserSkeleton />
         ) : user
           ? (
-            <div className="relative inline-flex items-center justify-center pr-1 pt-1">
-              {unreadNotificationsCount > 0 && (
-                <span className="pointer-events-none absolute right-0 top-0 z-20 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                  {formatBadgeCount(unreadNotificationsCount)}
-                </span>
-              )}
-              <UserButton
-                userProfileMode="modal"
-                appearance={userButtonAppearance}
-              >
-                <UserButton.MenuItems>
-                  <UserButton.Action label="Home" labelIcon={<HomeIcon />} onClick={() => navigate('/')} />
-                  <UserButton.Action label="Products" labelIcon={<BoxIcon />} onClick={() => navigate('/all-products')} />
-                  <UserButton.Action label="Cart" labelIcon={<CartIcon />} onClick={() => navigate('/cart')} />
-                  <UserButton.Action label="My Orders" labelIcon={<BagIcon />} onClick={() => navigate('/my-orders')} />
-                </UserButton.MenuItems>
-              </UserButton>
-            </div>
+            !isDesktopViewport
+              ? renderUserButton({
+                  includeMobileLinks: true,
+                  badgeClassName: "pointer-events-none absolute right-0 top-0 z-20 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm",
+                })
+              : null
           )
           : (
             <button onClick={openSignIn} className="flex items-center gap-2 hover:text-gray-900 transition text-sm">

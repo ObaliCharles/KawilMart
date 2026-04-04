@@ -91,7 +91,7 @@ export default function AdminOrders() {
 
     return (
         <div className="space-y-6 max-w-7xl">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">All Orders</h1>
                     <p className="text-sm text-gray-500 mt-1">{filtered.length} orders</p>
@@ -123,7 +123,7 @@ export default function AdminOrders() {
             {/* Orders Table */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="min-w-[900px] w-full text-sm">
                         <thead className="bg-gray-50 border-b border-gray-100">
                             <tr>
                                 <th className="text-left px-5 py-4 text-gray-500 font-medium">Order</th>
@@ -176,7 +176,7 @@ export default function AdminOrders() {
                                             value={order.riderId || ''}
                                             disabled={updatingId === order._id}
                                             onChange={(e) => updateOrder(order._id, { riderId: e.target.value })}
-                                            className="min-w-[170px] text-xs font-medium px-2 py-1.5 rounded-lg border border-gray-200 outline-none cursor-pointer bg-white"
+                                            className="min-w-[150px] text-xs font-medium px-2 py-1.5 rounded-lg border border-gray-200 outline-none cursor-pointer bg-white md:min-w-[170px]"
                                         >
                                             <option value="">Unassigned</option>
                                             {riders.map((rider) => (

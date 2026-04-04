@@ -134,10 +134,10 @@ export default function RiderDashboard() {
     return (
         <>
             <Navbar />
-            <div className="px-4 md:px-10 lg:px-20 py-8 min-h-screen bg-gray-50">
+            <div className="min-h-screen bg-gray-50 px-4 py-6 sm:px-6 md:px-10 md:py-8 lg:px-20">
 
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
+                <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <span className="bg-orange-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">🛵 RIDER</span>
@@ -147,7 +147,7 @@ export default function RiderDashboard() {
                     </div>
                     <Link href="/">
                         <div className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-                            <Image src={assets.logo} alt="logo" className="w-20" />
+                            <Image src={assets.logo} alt="logo" className="w-20 sm:w-24" />
                         </div>
                     </Link>
                 </div>
@@ -169,10 +169,10 @@ export default function RiderDashboard() {
                 </div>
 
                 {/* Tabs */}
-                <div className="flex gap-2 mb-6">
+                <div className="mb-6 flex flex-wrap gap-2">
                     <button
                         onClick={() => setActiveTab('active')}
-                        className={`px-5 py-2.5 rounded-xl text-sm font-medium transition ${
+                        className={`rounded-xl px-4 py-2.5 text-sm font-medium transition sm:px-5 ${
                             activeTab === 'active'
                                 ? 'bg-orange-600 text-white shadow-sm'
                                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
@@ -182,7 +182,7 @@ export default function RiderDashboard() {
                     </button>
                     <button
                         onClick={() => setActiveTab('completed')}
-                        className={`px-5 py-2.5 rounded-xl text-sm font-medium transition ${
+                        className={`rounded-xl px-4 py-2.5 text-sm font-medium transition sm:px-5 ${
                             activeTab === 'completed'
                                 ? 'bg-green-600 text-white shadow-sm'
                                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
@@ -209,14 +209,15 @@ export default function RiderDashboard() {
                                 <div key={delivery._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                                     {/* Card Header */}
                                     <div
-                                        className="p-5 flex items-center justify-between cursor-pointer hover:bg-gray-50/50"
+                                        className="cursor-pointer p-4 hover:bg-gray-50/50 sm:p-5"
                                         onClick={() => setExpandedId(isExpanded ? null : delivery._id)}
                                     >
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex min-w-0 items-center gap-4">
                                             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${sc.bg}`}>
                                                 {stepIcons[step]}
                                             </div>
-                                            <div>
+                                            <div className="min-w-0">
                                                 <p className="font-semibold text-gray-900 text-sm">
                                                     Order #{String(delivery._id).slice(-8).toUpperCase()}
                                                 </p>
@@ -228,11 +229,12 @@ export default function RiderDashboard() {
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-3 self-start sm:self-auto">
                                             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${sc.bg}`}>
                                                 {delivery.status}
                                             </span>
                                             <span className="text-gray-400">{isExpanded ? '▲' : '▼'}</span>
+                                        </div>
                                         </div>
                                     </div>
 
@@ -242,7 +244,7 @@ export default function RiderDashboard() {
                                             {/* Progress Steps */}
                                             <div>
                                                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Delivery Progress</p>
-                                                <div className="flex items-center">
+                                                <div className="flex items-center overflow-x-auto pb-1">
                                                     {stepLabels.map((label, i) => (
                                                         <React.Fragment key={label}>
                                                             <div className="flex flex-col items-center gap-1">
@@ -380,7 +382,7 @@ export default function RiderDashboard() {
 
                                             {/* Action Buttons */}
                                             {delivery.status !== 'Delivered' && (
-                                                <div className="flex gap-3 pt-2">
+                                                <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                                                     {delivery.status !== 'Out for Delivery' && (
                                                         <button
                                                             onClick={() => updateStatus(delivery._id, 'Out for Delivery')}

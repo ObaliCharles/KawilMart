@@ -70,30 +70,30 @@ const Product = () => {
 
     return productData ? (<>
         <Navbar />
-        <div className="px-6 md:px-16 lg:px-32 pt-14 space-y-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
-                <div className="px-5 lg:px-16 xl:px-20">
-                    <div className="rounded-lg overflow-hidden bg-gray-500/10 mb-4">
+        <div className="space-y-10 px-4 pt-8 sm:px-6 md:px-12 md:pt-14 lg:px-24 xl:px-32">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-12 lg:gap-16">
+                <div className="px-0 sm:px-4 lg:px-10 xl:px-16">
+                    <div className="mb-4 overflow-hidden rounded-lg bg-gray-500/10">
                         <Image
                             src={mainImage || productData.image[0]}
                             alt="alt"
-                            className="w-full h-auto object-cover mix-blend-multiply"
+                            className="aspect-square w-full object-cover mix-blend-multiply"
                             width={1280}
                             height={720}
                         />
                     </div>
 
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-4 gap-2 sm:gap-4">
                         {productData.image.map((image, index) => (
                             <div
                                 key={index}
                                 onClick={() => setMainImage(image)}
-                                className="cursor-pointer rounded-lg overflow-hidden bg-gray-500/10"
+                                className="cursor-pointer overflow-hidden rounded-lg bg-gray-500/10"
                             >
                                 <Image
                                     src={image}
                                     alt="alt"
-                                    className="w-full h-auto object-cover mix-blend-multiply"
+                                    className="aspect-square w-full object-cover mix-blend-multiply"
                                     width={1280}
                                     height={720}
                                 />
@@ -103,14 +103,14 @@ const Product = () => {
                     </div>
                 </div>
 
-                <div className="flex flex-col">
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                        <h1 className="text-3xl font-medium text-gray-800/90">
+                <div className="flex min-w-0 flex-col">
+                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <h1 className="text-2xl font-medium text-gray-800/90 sm:text-3xl">
                             {productData.name}
                         </h1>
                         <button
                             onClick={handleLikeClick}
-                            className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                            className={`shrink-0 rounded-full border px-4 py-2 text-xs font-medium transition sm:text-sm ${
                                 productData.likedByCurrentUser
                                     ? "border-orange-200 bg-orange-50 text-orange-700"
                                     : "border-gray-200 bg-white text-gray-600 hover:border-orange-200 hover:text-orange-600"
@@ -123,7 +123,7 @@ const Product = () => {
                     <p className="text-gray-600 mt-3">
                         {productData.description}
                     </p>
-                    <p className="text-3xl font-medium mt-6">
+                    <p className="mt-6 text-2xl font-medium sm:text-3xl">
                         {formatCurrency(productData.offerPrice)}
                         <span className="text-base font-normal text-gray-800/60 line-through ml-2">
                             {formatCurrency(productData.price)}
@@ -158,7 +158,7 @@ const Product = () => {
                     </div>
 
                     {/* Seller Information */}
-                    <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+                    <div className="mt-8 rounded-lg bg-blue-50 p-4">
                         <h3 className="text-lg font-medium text-gray-800 mb-3">Seller Information</h3>
                         <div className="space-y-2 text-sm">
                             <p><strong>Contact:</strong> {productData.sellerContact}</p>
@@ -173,8 +173,8 @@ const Product = () => {
                             <h3 className="text-lg font-medium text-gray-800 mb-4">Customer Reviews ({productData.reviews.length})</h3>
                             <div className="space-y-4">
                                 {productData.reviews.map((review, index) => (
-                                    <div key={index} className="border border-gray-200 rounded-lg p-4">
-                                        <div className="flex items-center justify-between mb-2">
+                                    <div key={index} className="rounded-lg border border-gray-200 p-4">
+                                        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                             <span className="font-medium">{review.userName}</span>
                                             <div className="flex items-center gap-1">
                                                 {[...Array(5)].map((_, i) => (
@@ -197,11 +197,11 @@ const Product = () => {
                         </div>
                     )}
 
-                    <div className="flex items-center mt-10 gap-4">
+                    <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                         <button
                             onClick={handleAddToCart}
                             disabled={!!cartAction}
-                            className={`w-full py-3.5 transition ${
+                            className={`w-full rounded-lg py-3.5 transition ${
                                 cartAction
                                     ? 'cursor-wait bg-gray-200 text-gray-500'
                                     : 'bg-gray-100 text-gray-800/80 hover:bg-gray-200'
@@ -212,7 +212,7 @@ const Product = () => {
                         <button
                             onClick={handleBuyNow}
                             disabled={!!cartAction}
-                            className={`w-full py-3.5 text-white transition ${
+                            className={`w-full rounded-lg py-3.5 text-white transition ${
                                 cartAction
                                     ? 'cursor-wait bg-orange-400'
                                     : 'bg-orange-500 hover:bg-orange-600'
@@ -225,17 +225,17 @@ const Product = () => {
             </div>
             <div className="flex flex-col items-center">
                 <div className="flex flex-col items-center mb-4 mt-16">
-                    <p className="text-3xl font-medium">Featured <span className="font-medium text-orange-600">Products</span></p>
+                    <p className="text-center text-2xl font-medium sm:text-3xl">Featured <span className="font-medium text-orange-600">Products</span></p>
                     <div className="w-28 h-0.5 bg-orange-600 mt-2"></div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-6 pb-14 w-full">
+                <div className="mt-6 grid w-full grid-cols-2 gap-4 pb-14 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 xl:gap-6">
                     {products.slice(0, 5).map((product, index) => <ProductCard key={index} product={product} />)}
                 </div>
                 <button
                     onClick={() => navigate('/all-products')}
                     onMouseEnter={() => prefetchRoute('/all-products')}
                     onFocus={() => prefetchRoute('/all-products')}
-                    className="px-8 py-2 mb-16 border rounded text-gray-500/70 hover:bg-slate-50/90 transition"
+                    className="mb-16 w-full rounded border px-8 py-2 text-gray-500/70 transition hover:bg-slate-50/90 sm:w-auto"
                 >
                     See more
                 </button>

@@ -101,7 +101,7 @@ const Orders = () => {
     }, [authReady, user]);
 
     return (
-        <div className="flex-1 h-screen overflow-scroll flex flex-col justify-between text-sm">
+        <div className="flex min-h-screen flex-1 flex-col justify-between text-sm">
             {loading ? <div className="md:p-10 p-4"><OrdersManagementPageSkeleton /></div> : (
                 <div className="md:p-10 p-4 space-y-5">
                     <div>
@@ -124,18 +124,18 @@ const Orders = () => {
                             return (
                             <div
                                 key={order._id}
-                                className="grid grid-cols-1 xl:grid-cols-[1.5fr_1.1fr_0.75fr_0.9fr_1.05fr_0.75fr] gap-5 p-5 border-t border-gray-100 first:border-t-0"
+                                className="grid grid-cols-1 gap-4 border-t border-gray-100 p-4 first:border-t-0 sm:p-5 xl:grid-cols-[1.5fr_1.1fr_0.75fr_0.9fr_1.05fr_0.75fr] xl:gap-5"
                             >
-                                <div className="flex gap-4">
+                                <div className="flex min-w-0 gap-3 sm:gap-4">
                                     <Image
-                                        className="h-16 w-16 object-cover"
+                                        className="h-14 w-14 shrink-0 object-cover sm:h-16 sm:w-16"
                                         src={assets.box_icon}
                                         alt="box_icon"
                                         width={64}
                                         height={64}
                                     />
-                                    <div className="space-y-2">
-                                        <p className="font-medium">
+                                    <div className="min-w-0 space-y-2">
+                                        <p className="font-medium text-gray-900 break-words">
                                             {order.items.map(item => `${item.product?.name || 'Deleted Product'} x ${item.quantity}`).join(", ")}
                                         </p>
                                         <p className="text-xs text-gray-500">
@@ -172,7 +172,7 @@ const Orders = () => {
                                             value={order.paymentStatus || 'Pending'}
                                             disabled={isUpdatingOrder}
                                             onChange={(e) => updatePaymentStatus(order._id, e.target.value)}
-                                            className="w-full min-w-[180px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none"
+                                            className="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none"
                                         >
                                             {paymentStatusOptions.map((status) => (
                                                 <option key={status} value={status}>
@@ -194,7 +194,7 @@ const Orders = () => {
                                         value={order.riderId || ''}
                                         disabled={isUpdatingOrder}
                                         onChange={(e) => updateOrderRider(order._id, e.target.value)}
-                                        className="w-full min-w-[190px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
+                                        className="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
                                     >
                                         <option value="">Unassigned</option>
                                         {riders.map((rider) => (

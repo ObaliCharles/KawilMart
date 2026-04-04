@@ -77,13 +77,13 @@ const ProductCard = ({ product }) => {
             }}
             onMouseEnter={() => prefetchRoute(productHref)}
             onFocus={() => prefetchRoute(productHref)}
-            className="flex flex-col items-start gap-0.5 max-w-[220px] w-full cursor-pointer"
+            className="flex h-full w-full min-w-0 cursor-pointer flex-col items-start gap-1"
         >
-            <div className="cursor-pointer group relative bg-gray-500/10 rounded-lg w-full h-52 flex items-center justify-center overflow-hidden">
+            <div className="group relative flex h-40 w-full items-center justify-center overflow-hidden rounded-lg bg-gray-500/10 sm:h-52">
                 <Image
                     src={product.image[0]}
                     alt={product.name}
-                    className="group-hover:scale-105 transition object-cover w-4/5 h-4/5 md:w-full md:h-full"
+                    className="h-4/5 w-4/5 object-cover transition group-hover:scale-105 sm:h-full sm:w-full"
                     width={300}
                     height={300}
                     sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
@@ -114,22 +114,26 @@ const ProductCard = ({ product }) => {
                 </button>
             </div>
 
-            <p className="md:text-base font-medium pt-2 w-full truncate">{product.name}</p>
+            <p className="w-full pt-2 text-sm font-medium leading-5 text-gray-900 sm:text-base">
+                {product.name}
+            </p>
             <div className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${promotionBadge.className}`}>
               {promotionBadge.label}
             </div>
-            <p className="w-full text-xs text-gray-500/70 max-sm:hidden truncate">{product.description}</p>
+            <p className="hidden w-full text-xs text-gray-500/70 sm:block">
+                {product.description}
+            </p>
 
             {/* Shop location */}
-            <div className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
+            <div className="mt-0.5 flex w-full items-center gap-1 text-xs text-gray-400">
               <span>📍</span>
-              <span>{location}</span>
+              <span className="truncate">{location}</span>
             </div>
 
             <ProductRating product={product} />
 
-            <div className="flex items-end justify-between w-full mt-1">
-                <div>
+            <div className="mt-auto flex w-full flex-col gap-2 pt-1 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0">
                   <p className="text-base font-medium text-orange-600">{formatCurrency(product.offerPrice)}</p>
                   {product.price > product.offerPrice && (
                     <p className="text-xs text-gray-400 line-through">{formatCurrency(product.price)}</p>
@@ -138,8 +142,8 @@ const ProductCard = ({ product }) => {
                 <button
                   onClick={handleAddToCart}
                   disabled={isAdding}
-                  className={`max-sm:hidden px-4 py-1.5 text-white bg-orange-600 border border-orange-600 rounded-full text-xs transition font-medium ${
-                    isAdding ? 'cursor-wait opacity-75' : 'hover:bg-orange-700'
+                  className={`w-full rounded-full border border-orange-600 px-3 py-2 text-xs font-medium text-white transition sm:w-auto sm:px-4 sm:py-1.5 ${
+                    isAdding ? 'cursor-wait bg-orange-500 opacity-75' : 'bg-orange-600 hover:bg-orange-700'
                   }`}
                 >
                     {isAdding ? 'Adding...' : 'Add to Cart'}

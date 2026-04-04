@@ -16,48 +16,58 @@ const SideBar = () => {
         { name: 'Orders', path: '/seller/orders', icon: assets.order_icon },
     ];
 
+    const shortcuts = [
+        ...(isAdmin ? [{ name: 'Admin Panel', path: '/admin', icon: '🛡️', accentClassName: 'text-orange-600 font-medium' }] : []),
+        { name: 'Back to Store', path: '/', icon: '🏠', accentClassName: 'text-gray-500' },
+    ];
+
     return (
-        <div className='md:w-64 w-16 border-r min-h-screen text-base border-gray-300 py-2 flex flex-col'>
-            {menuItems.map((item) => {
-                const isActive = pathname === item.path;
-                return (
-                    <Link href={item.path} key={item.name} passHref>
-                        <div className={`flex items-center py-3 px-4 gap-3 ${
-                            isActive
-                                ? 'border-r-4 md:border-r-[6px] bg-orange-600/10 border-orange-500/90'
-                                : 'hover:bg-gray-100/90 border-white'
-                        }`}>
-                            <Image
-                                src={item.icon}
-                                alt={`${item.name.toLowerCase()}_icon`}
-                                className="w-7 h-7"
-                            />
-                            <p className='md:block hidden text-center'>{item.name}</p>
-                        </div>
-                    </Link>
-                );
-            })}
+        <div className="w-full border-b border-gray-300 bg-white text-base md:min-h-screen md:w-64 md:border-b-0 md:border-r">
+            <div className="flex gap-2 overflow-x-auto px-2 py-2 md:flex-col md:gap-0 md:overflow-visible md:px-0">
+                {menuItems.map((item) => {
+                    const isActive = pathname === item.path;
 
-            {/* Admin shortcut — only visible to admins */}
-            {isAdmin && (
-                <Link href="/admin" passHref>
-                    <div className={`flex items-center py-3 px-4 gap-3 mt-auto border-t border-gray-100 ${
-                        pathname.startsWith('/admin')
-                            ? 'border-r-4 md:border-r-[6px] bg-orange-600/10 border-orange-500/90'
-                            : 'hover:bg-gray-100/90 border-white'
-                    }`}>
-                        <span className="text-xl w-7 h-7 flex items-center justify-center">🛡️</span>
-                        <p className='md:block hidden text-center text-orange-600 font-medium'>Admin Panel</p>
-                    </div>
-                </Link>
-            )}
+                    return (
+                        <Link href={item.path} key={item.name} passHref className="shrink-0 md:block">
+                            <div className={`flex items-center gap-3 rounded-xl px-3 py-2.5 md:rounded-none md:px-4 ${
+                                isActive
+                                    ? 'bg-orange-600/10 md:border-r-[6px] border-orange-500/90'
+                                    : 'hover:bg-gray-100/90'
+                            }`}>
+                                <Image
+                                    src={item.icon}
+                                    alt={`${item.name.toLowerCase()}_icon`}
+                                    className="h-6 w-6 shrink-0 md:h-7 md:w-7"
+                                />
+                                <p className="whitespace-nowrap text-sm text-gray-700 md:text-base">{item.name}</p>
+                            </div>
+                        </Link>
+                    );
+                })}
 
-            <Link href="/" passHref>
-                <div className="flex items-center py-3 px-4 gap-3 hover:bg-gray-100/90 border-white mt-1">
-                    <span className="text-xl w-7 h-7 flex items-center justify-center">🏠</span>
-                    <p className='md:block hidden text-center text-gray-500'>Back to Store</p>
-                </div>
-            </Link>
+                {shortcuts.map((item) => {
+                    const isActive = item.path === '/'
+                        ? pathname === '/'
+                        : pathname.startsWith(item.path);
+
+                    return (
+                        <Link href={item.path} key={item.name} passHref className="shrink-0 md:block">
+                            <div className={`flex items-center gap-3 rounded-xl px-3 py-2.5 md:px-4 ${
+                                isActive
+                                    ? 'bg-orange-600/10 md:border-r-[6px] border-orange-500/90'
+                                    : 'hover:bg-gray-100/90'
+                            }`}>
+                                <span className="flex h-6 w-6 shrink-0 items-center justify-center text-lg md:h-7 md:w-7 md:text-xl">
+                                    {item.icon}
+                                </span>
+                                <p className={`whitespace-nowrap text-sm md:text-base ${item.accentClassName}`}>
+                                    {item.name}
+                                </p>
+                            </div>
+                        </Link>
+                    );
+                })}
+            </div>
         </div>
     );
 };

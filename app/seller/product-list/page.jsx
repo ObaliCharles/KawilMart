@@ -81,9 +81,9 @@ const ProductList = () => {
       {loading ? <ProductTablePageSkeleton /> : (
         <div className="w-full md:p-10 p-4">
           <h2 className="pb-4 text-lg font-medium">All Products</h2>
-          <div className="flex flex-col items-center max-w-4xl w-full overflow-hidden rounded-md bg-white border border-gray-500/20">
+          <div className="flex w-full max-w-5xl flex-col items-center overflow-hidden rounded-md border border-gray-500/20 bg-white">
             <div className="overflow-x-auto w-full">
-              <table className="table-fixed w-full">
+              <table className="min-w-[680px] table-fixed w-full">
                 <thead className="text-gray-900 text-sm text-left">
                   <tr>
                     <th className="w-2/3 md:w-2/5 px-4 py-3 font-medium truncate">Product</th>
@@ -96,19 +96,21 @@ const ProductList = () => {
                   {Array.isArray(products) && products.length > 0 ? (
                     products.map((product, index) => (
                       <tr key={product._id || index} className="border-t border-gray-500/20">
-                        <td className="md:px-4 pl-2 md:pl-4 py-3 flex items-center space-x-3 truncate">
-                          <div className="bg-gray-500/10 rounded p-2">
+                        <td className="py-3 pl-2 md:px-4 md:pl-4">
+                          <div className="flex items-center space-x-3 truncate">
+                          <div className="rounded bg-gray-500/10 p-2">
                             {product.image?.[0] && (
                               <Image
                                 src={product.image[0]}
                                 alt={product.name || "product image"}
-                                className="w-16"
+                                className="w-14 sm:w-16"
                                 width={1280}
                                 height={720}
                               />
                             )}
                           </div>
-                          <span className="truncate w-full">{product.name}</span>
+                          <span className="w-full truncate">{product.name}</span>
+                          </div>
                         </td>
                         <td className="px-4 py-3 max-sm:hidden">{product.category}</td>
                         <td className="px-4 py-3">{formatCurrency(product.offerPrice)}</td>

@@ -8,8 +8,8 @@ const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <div className="flex md:flex-row flex-col-reverse items-center justify-between text-left w-full px-10">
-      <div className="flex items-center gap-4">
+    <div className="flex w-full flex-col-reverse items-center justify-between gap-3 px-4 py-4 text-left sm:px-6 md:flex-row md:px-8">
+      <div className="flex flex-col items-center gap-2 md:flex-row md:gap-4">
         <Image className="hidden md:block" src={assets.logo} alt="logo" />
         <div className="hidden md:block h-7 w-px bg-gray-500/60"></div>
         <p className="py-4 text-center text-xs md:text-sm text-gray-500">
