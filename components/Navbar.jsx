@@ -48,6 +48,7 @@ const Navbar = () => {
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDesktopViewport, setIsDesktopViewport] = useState(null);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const clerkReady = isUserLoaded && isAuthLoaded;
   const cartCount = getCartCount();
   // Check both context values and user metadata for roles
@@ -61,11 +62,13 @@ const Navbar = () => {
     showRider ? { href: '/dashboard/rider', label: 'Deliveries', className: 'border-purple-400 text-purple-600' } : null,
   ].filter(Boolean);
   const hasMobileDashboardLinks = mobileDashboardLinks.length > 0;
+  const shouldWrapMobileNav = hasMobileDashboardLinks || isMobileSearchOpen;
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/all-products?search=${encodeURIComponent(searchQuery)}`);
       setSearchQuery('');
+      setIsMobileSearchOpen(false);
     }
   };
 
@@ -149,6 +152,10 @@ const Navbar = () => {
     navigate('/cart');
   };
 
+  const toggleMobileSearch = () => {
+    setIsMobileSearchOpen((current) => !current);
+  };
+
   const renderUserButton = ({ showName = false, includeMobileLinks = false, badgeClassName }) => (
     <div className="relative inline-flex items-center justify-center pr-1 pt-1">
       {unreadNotificationsCount > 0 && (
@@ -173,7 +180,7 @@ const Navbar = () => {
   );
 
   return (
-    <nav className={`sticky top-0 z-30 flex items-center justify-between border-b border-gray-300 bg-white px-4 py-3 text-gray-700 sm:px-6 md:flex-wrap md:gap-y-2 md:px-16 lg:px-32 ${hasMobileDashboardLinks ? 'flex-wrap gap-y-2' : 'flex-nowrap'}`}>
+    <nav className={`sticky top-0 z-30 flex items-center justify-between border-b border-gray-300 bg-white px-4 py-3 text-gray-700 sm:px-6 md:flex-wrap md:gap-y-2 md:px-16 lg:px-32 ${shouldWrapMobileNav ? 'flex-wrap gap-y-2' : 'flex-nowrap'}`}>
       <Link href="/" prefetch className="block" onClick={() => beginLinkNavigation("/")}>
         <Image
           className="w-24 cursor-pointer sm:w-28 md:w-32"
@@ -271,6 +278,25 @@ const Navbar = () => {
         )}
         <div className="flex items-center gap-2">
           <button
+            type="button"
+            onClick={toggleMobileSearch}
+            onMouseEnter={() => prefetchRoute('/all-products')}
+            onFocus={() => prefetchRoute('/all-products')}
+            className={`flex h-9 w-9 items-center justify-center rounded-full border transition sm:h-10 sm:w-10 ${
+              isMobileSearchOpen
+                ? 'border-orange-300 bg-orange-50 text-orange-600'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-orange-300 hover:bg-orange-50'
+            }`}
+            aria-label={isMobileSearchOpen ? 'Close search' : 'Open search'}
+            aria-expanded={isMobileSearchOpen}
+          >
+            <Image
+              className={`h-4 w-4 ${isMobileSearchOpen ? 'opacity-100' : 'opacity-70'}`}
+              src={assets.search_icon}
+              alt="search icon"
+            />
+          </button>
+          <button
             onClick={openCart}
             onMouseEnter={() => prefetchRoute('/cart')}
             onFocus={() => prefetchRoute('/cart')}
@@ -306,6 +332,43 @@ const Navbar = () => {
           }
         </div>
       </div>
+
+      {isMobileSearchOpen && (
+        <div className="w-full md:hidden">
+          <form
+            onSubmit={handleSearch}
+            className="flex items-center gap-2 rounded-2xl border border-orange-200 bg-gradient-to-r from-orange-50 via-white to-amber-50 px-3 py-2 shadow-sm"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500 shadow-sm">
+              <Image className="h-4 w-4" src={assets.search_icon} alt="search icon" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search products, brands, categories..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
+              autoFocus
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="rounded-full px-2 py-1 text-xs font-medium text-gray-400 transition hover:bg-white hover:text-gray-600"
+                aria-label="Clear search"
+              >
+                Clear
+              </button>
+            ) : null}
+            <button
+              type="submit"
+              className="rounded-xl bg-orange-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-orange-700"
+            >
+              Search
+            </button>
+          </form>
+        </div>
+      )}
     </nav>
   );
 };
