@@ -60,6 +60,7 @@ const Navbar = () => {
     showAdmin ? { href: '/admin', label: 'Admin', className: 'border-orange-400 text-orange-600' } : null,
     showRider ? { href: '/dashboard/rider', label: 'Deliveries', className: 'border-purple-400 text-purple-600' } : null,
   ].filter(Boolean);
+  const hasMobileDashboardLinks = mobileDashboardLinks.length > 0;
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -172,7 +173,7 @@ const Navbar = () => {
   );
 
   return (
-    <nav className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-y-2 border-b border-gray-300 bg-white px-4 py-3 text-gray-700 sm:px-6 md:px-16 lg:px-32">
+    <nav className={`sticky top-0 z-30 flex items-center justify-between border-b border-gray-300 bg-white px-4 py-3 text-gray-700 sm:px-6 md:flex-wrap md:gap-y-2 md:px-16 lg:px-32 ${hasMobileDashboardLinks ? 'flex-wrap gap-y-2' : 'flex-nowrap'}`}>
       <Link href="/" prefetch className="block" onClick={() => beginLinkNavigation("/")}>
         <Image
           className="w-24 cursor-pointer sm:w-28 md:w-32"
@@ -254,8 +255,8 @@ const Navbar = () => {
       </div>
 
       {/* Mobile Right */}
-      <div className={`flex w-full items-center gap-2 md:hidden ${mobileDashboardLinks.length > 0 ? 'justify-between' : 'justify-end'}`}>
-        {mobileDashboardLinks.length > 0 && (
+      <div className={`flex items-center gap-2 md:hidden ${hasMobileDashboardLinks ? 'w-full justify-between' : 'shrink-0 justify-end'}`}>
+        {hasMobileDashboardLinks && (
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {mobileDashboardLinks.map((link) => (
               <button

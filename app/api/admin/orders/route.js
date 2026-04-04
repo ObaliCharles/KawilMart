@@ -9,6 +9,7 @@ import { getUserRole } from "@/lib/userRoleCache";
 import {
     createAssignmentNotification,
     createRiderAssignmentTrackingEvent,
+    createSellerStatusNotification,
     createStatusNotification,
     createStatusTrackingEvent,
 } from "@/lib/orderTracking";
@@ -59,6 +60,22 @@ export async function PUT(request) {
                     createStatusTrackingEvent(status),
                 ];
                 customerNotifications.push(createStatusNotification(status, order._id));
+
+                if (order.sellerId && order.sellerId !== userId) {
+                    const sellerNotification = createSellerStatusNotification(status, order._id);
+                    outboundNotifications.push({
+                        userId: order.sellerId,
+                        notification: sellerNotification,
+                        emailTitle: sellerNotification.title,
+                        emailMessage: sellerNotification.message,
+                        ctaLabel: "Open seller orders",
+                        ctaPath: "/seller/orders",
+                        emailDetails: [
+                            { label: "order_id", value: `#${String(order._id).slice(-8).toUpperCase()}` },
+                            { label: "status", value: status },
+                        ],
+                    });
+                }
             }
         }
 

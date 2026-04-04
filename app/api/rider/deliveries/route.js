@@ -8,6 +8,7 @@ import Address from "@/models/Address";
 import User from "@/models/User";
 import { getUserRole } from "@/lib/userRoleCache";
 import {
+    createSellerStatusNotification,
     createStatusNotification,
     createStatusTrackingEvent,
     ensureTrackingEvents,
@@ -154,16 +155,40 @@ export async function PUT(request) {
             ];
             await order.save();
 
-            const notification = createStatusNotification(status, order._id);
-            await notifyUsers([
+            const customerNotification = createStatusNotification(status, order._id);
+            const outboundNotifications = [
                 {
                     userId: order.userId,
-                    notification,
-                    emailTitle: notification.title,
-                    emailMessage: notification.message,
+                    notification: customerNotification,
+                    emailTitle: customerNotification.title,
+                    emailMessage: customerNotification.message,
                     ctaLabel: "Track order",
                     ctaPath: "/my-orders",
+                    emailDetails: [
+                        { label: "order_id", value: `#${String(order._id).slice(-8).toUpperCase()}` },
+                        { label: "status", value: status },
+                    ],
                 },
+            ];
+
+            if (order.sellerId && order.sellerId !== userId) {
+                const sellerNotification = createSellerStatusNotification(status, order._id);
+                outboundNotifications.push({
+                    userId: order.sellerId,
+                    notification: sellerNotification,
+                    emailTitle: sellerNotification.title,
+                    emailMessage: sellerNotification.message,
+                    ctaLabel: "Open seller orders",
+                    ctaPath: "/seller/orders",
+                    emailDetails: [
+                        { label: "order_id", value: `#${String(order._id).slice(-8).toUpperCase()}` },
+                        { label: "status", value: status },
+                    ],
+                });
+            }
+
+            await notifyUsers([
+                ...outboundNotifications,
             ]);
         }
 

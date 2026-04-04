@@ -6,7 +6,10 @@ import User from "@/models/User";
 import { getRequestUserId } from "@/lib/requestAuth";
 import { NextResponse } from "next/server";
 import { inngest } from "@/config/inngest";
-import { createStatusTrackingEvent } from "@/lib/orderTracking";
+import {
+  createSellerOrderPlacedNotification,
+  createStatusTrackingEvent,
+} from "@/lib/orderTracking";
 import { notifyUsers } from "@/lib/notifyUsers";
 
 const sendOrderEvents = (createdOrders, userId, address) => {
@@ -29,6 +32,8 @@ const sendOrderEvents = (createdOrders, userId, address) => {
     console.error("Failed to queue order event(s):", error);
   });
 };
+
+const formatCurrency = (amount) => `UGX ${Number(amount || 0).toLocaleString("en-UG")}`;
 
 export async function POST(request) {
   try {
@@ -111,23 +116,58 @@ export async function POST(request) {
     });
 
     const totalAmount = createdOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
+    const customerName = addressDoc.fullName || "Customer";
 
-    await notifyUsers([
-      {
-        userId,
-        notification: {
-          type: "order",
-          title: createdOrders.length > 1 ? "Orders placed successfully" : "Order placed successfully",
-          message: `Your order for ${totalItems} item${totalItems === 1 ? "" : "s"} totaling UGX ${totalAmount.toLocaleString("en-UG")} has been received.`,
-          read: false,
-          date: new Date(),
-        },
-        emailTitle: createdOrders.length > 1 ? "Your KawilMart orders were placed" : "Your KawilMart order was placed",
-        emailMessage: `We have received your order for ${totalItems} item${totalItems === 1 ? "" : "s"} totaling UGX ${totalAmount.toLocaleString("en-UG")}. You can track progress from your orders page.`,
-        ctaLabel: "Track my order",
-        ctaPath: "/my-orders",
+    const customerNotificationEntry = {
+      userId,
+      notification: {
+        type: "order",
+        title: createdOrders.length > 1 ? "Orders placed successfully" : "Order placed successfully",
+        message: `Your order for ${totalItems} item${totalItems === 1 ? "" : "s"} totaling ${formatCurrency(totalAmount)} has been received.`,
+        read: false,
+        date: new Date(),
       },
-    ]);
+      emailTitle: createdOrders.length > 1 ? "Your KawilMart orders were placed" : "Your KawilMart order was placed",
+      emailMessage: `We have received your order for ${totalItems} item${totalItems === 1 ? "" : "s"} totaling ${formatCurrency(totalAmount)}. You can track progress from your orders page.`,
+      ctaLabel: "Track my order",
+      ctaPath: "/my-orders",
+      emailDetails: [
+        { label: "orders", value: String(createdOrders.length) },
+        { label: "items", value: String(totalItems) },
+        { label: "total", value: formatCurrency(totalAmount) },
+      ],
+    };
+
+    const sellerNotificationEntries = createdOrders
+      .filter((order) => order?.sellerId)
+      .map((order) => {
+        const sellerItemCount = order.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        const shortOrderId = String(order._id).slice(-8).toUpperCase();
+        const sellerTotal = formatCurrency(order.amount);
+        const sellerNotification = createSellerOrderPlacedNotification({
+          orderId: order._id,
+          customerName,
+          totalItems: sellerItemCount,
+          totalAmount: sellerTotal,
+        });
+
+        return {
+          userId: order.sellerId,
+          notification: sellerNotification,
+          emailTitle: `New customer order: #${shortOrderId}`,
+          emailMessage: `${customerName} placed order #${shortOrderId} for ${sellerItemCount} item${sellerItemCount === 1 ? "" : "s"} totaling ${sellerTotal}. Open your seller dashboard to review and fulfill it.`,
+          ctaLabel: "Open seller orders",
+          ctaPath: "/seller/orders",
+          emailDetails: [
+            { label: "order_id", value: `#${shortOrderId}` },
+            { label: "customer", value: customerName },
+            { label: "items", value: String(sellerItemCount) },
+            { label: "total", value: sellerTotal },
+          ],
+        };
+      });
+
+    await notifyUsers([customerNotificationEntry, ...sellerNotificationEntries]);
 
     void sendOrderEvents(createdOrders, userId, address);
 
