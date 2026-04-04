@@ -1,5 +1,5 @@
 "use client"
-import React, { startTransition, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { assets, BagIcon, BoxIcon, CartIcon, HomeIcon } from "@/assets/assets";
 import Link from "next/link"
 import { useAppContext } from "@/context/AppContext";
@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useClerk, UserButton, useUser, useAuth } from "@clerk/nextjs";
 import axios from 'axios';
 import { NavbarUserSkeleton } from "@/components/dashboard/DashboardSkeletons";
+import { usePathname } from "next/navigation";
 
 const userButtonAppearance = {
   elements: {
@@ -16,10 +17,11 @@ const userButtonAppearance = {
 };
 
 const Navbar = () => {
-  const { isSeller, isAdmin, isRider, resolvedRole, router } = useAppContext();
+  const { isSeller, isAdmin, isRider, navigate, prefetchRoute, resolvedRole, setIsRouteLoading } = useAppContext();
   const { user, isLoaded: isUserLoaded } = useUser();
   const { isLoaded: isAuthLoaded, getToken } = useAuth();
   const { openSignIn } = useClerk();
+  const pathname = usePathname();
   const [mobileSearch, setMobileSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
@@ -30,12 +32,6 @@ const Navbar = () => {
   const showAdmin = isAdmin || userRole === 'admin';
   const showRider = isRider || userRole === 'rider';
   const showSeller = isSeller || userRole === 'seller' || userRole === 'admin';
-  const navigate = (href) => {
-    startTransition(() => {
-      router.push(href);
-    });
-  };
-
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -100,13 +96,19 @@ const Navbar = () => {
     if (showRider) routes.push('/dashboard/rider');
 
     routes.forEach((route) => {
-      router.prefetch(route);
+      prefetchRoute(route);
     });
-  }, [router, showAdmin, showRider, showSeller]);
+  }, [prefetchRoute, showAdmin, showRider, showSeller]);
+
+  const beginLinkNavigation = (href) => {
+    if (href !== pathname) {
+      setIsRouteLoading(true);
+    }
+  };
 
   return (
     <nav className="flex items-center justify-between px-6 md:px-16 lg:px-32 py-3 border-b border-gray-300 text-gray-700 bg-white sticky top-0 z-30">
-      <Link href="/" prefetch className="block">
+      <Link href="/" prefetch className="block" onClick={() => beginLinkNavigation("/")}>
         <Image
           className="cursor-pointer w-28 md:w-32"
           src={assets.logo}
@@ -116,10 +118,10 @@ const Navbar = () => {
 
       {/* Desktop Nav Links */}
       <div className="flex items-center gap-4 lg:gap-8 max-md:hidden">
-        <Link href="/" className="hover:text-gray-900 transition text-sm">Home</Link>
-        <Link href="/all-products" className="hover:text-gray-900 transition text-sm">Shop</Link>
-        <Link href="/all-products?filter=flash" className="hover:text-orange-600 transition text-sm text-orange-500 font-medium">⚡ Deals</Link>
-        <Link href="/" className="hover:text-gray-900 transition text-sm">About Us</Link>
+        <Link href="/" className="hover:text-gray-900 transition text-sm" onClick={() => beginLinkNavigation("/")}>Home</Link>
+        <Link href="/all-products" className="hover:text-gray-900 transition text-sm" onClick={() => beginLinkNavigation("/all-products")}>Shop</Link>
+        <Link href="/all-products?filter=flash" className="hover:text-orange-600 transition text-sm text-orange-500 font-medium" onClick={() => beginLinkNavigation("/all-products?filter=flash")}>⚡ Deals</Link>
+        <Link href="/about" className="hover:text-gray-900 transition text-sm" onClick={() => beginLinkNavigation("/about")}>About Us</Link>
         {(showSeller) && (
           <button onClick={() => navigate('/seller')} className="text-xs border px-4 py-1.5 rounded-full hover:bg-gray-50 transition">
             🏪 Seller

@@ -17,7 +17,11 @@ export async function GET(request) {
             return NextResponse.json({ success: false, message: "User not found" })
         }
 
-        return NextResponse.json({ success: true, notifications: user.notifications || [] })
+        const notifications = [...(user.notifications || [])].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        )
+
+        return NextResponse.json({ success: true, notifications })
 
     } catch (error) {
         return NextResponse.json({ success: false, message: error.message })

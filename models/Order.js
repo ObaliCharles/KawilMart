@@ -10,7 +10,22 @@ const orderSchema = new mongoose.Schema({
     }],
     amount: { type: Number, required: true },
     address: { type: String, ref: 'address', required: true },
-    status: { type: String, required: true, default: 'Order Placed', enum: ['Order Placed', 'Confirmed', 'Preparing', 'Ready for Delivery', 'Out for Delivery', 'Delivered', 'Cancelled'] },
+    status: {
+        type: String,
+        required: true,
+        default: 'Order Placed',
+        enum: [
+            'Order Placed',
+            'Confirmed',
+            'Preparing',
+            'Processing',
+            'Ready for Delivery',
+            'Shipped',
+            'Out for Delivery',
+            'Delivered',
+            'Cancelled'
+        ]
+    },
     paymentStatus: { type: String, default: 'Pending', enum: ['Pending', 'Paid', 'Failed'] },
     deliveryRequired: { type: Boolean, default: true },
     riderId: { type: String, ref: 'User' },

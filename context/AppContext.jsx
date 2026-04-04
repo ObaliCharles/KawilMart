@@ -1,5 +1,5 @@
 'use client'
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, startTransition, useContext, useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import axios from "axios";
@@ -17,6 +17,9 @@ export const AppContextProvider = (props) => {
 
     const currency = 'UGX '
     const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+    const searchParamsKey = searchParams.toString()
 
     const { user, isLoaded: isUserLoaded } = useUser()
     const { getToken, isLoaded: isAuthLoaded } = useAuth()
@@ -32,6 +35,7 @@ export const AppContextProvider = (props) => {
     const [cartItems, setCartItems] = useState({})
     const [loadingProducts, setLoadingProducts] = useState(true)
     const [loadingUser, setLoadingUser] = useState(false)
+    const [isRouteLoading, setIsRouteLoading] = useState(false)
 
     const persistProductsCache = (nextProducts) => {
         if (typeof window === 'undefined') {
@@ -220,7 +224,8 @@ export const AppContextProvider = (props) => {
     }
 
     const addToCart = async (itemId) => {
-        let cartData = structuredClone(cartItems);
+        const previousCartData = structuredClone(cartItems);
+        const cartData = structuredClone(cartItems);
         cartData[itemId] = (cartData[itemId] || 0) + 1;
         setCartItems(cartData);
 
@@ -232,10 +237,19 @@ export const AppContextProvider = (props) => {
                     headers
                 })
                 toast.success("Item added to cart")
+                return { success: true, cartData }
             } catch (error) {
+                setCartItems(previousCartData)
                 toast.error(error.message)
+                return {
+                    success: false,
+                    message: error.message,
+                }
             }
         }
+
+        toast.success("Item added to cart")
+        return { success: true, cartData }
     }
 
     const updateCartQuantity = async (itemId, quantity) => {
@@ -295,9 +309,32 @@ export const AppContextProvider = (props) => {
         }).format(safeAmount)}`
     }
 
+    const navigate = (href, options = {}) => {
+        if (!href) {
+            return
+        }
+
+        const { scroll = true } = options
+        setIsRouteLoading(true)
+
+        startTransition(() => {
+            router.push(href, { scroll })
+        })
+    }
+
+    const prefetchRoute = (href) => {
+        if (!href) {
+            return
+        }
+
+        router.prefetch(href)
+    }
+
     useEffect(() => {
         const hydrated = hydrateCachedProducts()
         fetchProductData({ background: hydrated })
+        // Initial product hydration only runs once on mount.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     useEffect(() => {
@@ -306,6 +343,8 @@ export const AppContextProvider = (props) => {
         }
 
         fetchProductData({ background: true })
+        // Refresh product data when auth identity changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authReady, user?.id])
 
     useEffect(() => {
@@ -322,7 +361,13 @@ export const AppContextProvider = (props) => {
             setAccessLoaded(true);
             setLoadingUser(false);
         }
+        // User/account hydration is intentionally keyed to auth state changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authReady, user])
+
+    useEffect(() => {
+        setIsRouteLoading(false)
+    }, [pathname, searchParamsKey])
 
     const value = {
         user, getToken,
@@ -331,6 +376,8 @@ export const AppContextProvider = (props) => {
         resolvedRole,
         syncAdminAccess,
         currency, router,
+        navigate, prefetchRoute,
+        isRouteLoading, setIsRouteLoading,
         formatCurrency, formatCompactCurrency,
         isSeller, setIsSeller,
         isAdmin, setIsAdmin,

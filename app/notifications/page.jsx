@@ -3,9 +3,9 @@ import React, { useEffect, useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import axios from "axios";
 import toast from "react-hot-toast";
-import Loading from "@/components/Loading";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { NotificationsPageSkeleton } from "@/components/PageSkeletons";
 
 const Notifications = () => {
   const { getToken, user, authReady } = useAppContext();
@@ -56,7 +56,7 @@ const Notifications = () => {
   if (loading) return (
     <>
       <Navbar />
-      <Loading />
+      <NotificationsPageSkeleton />
       <Footer />
     </>
   );

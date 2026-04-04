@@ -6,20 +6,21 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import Loading from "@/components/Loading";
 import { useAppContext } from "@/context/AppContext";
 import React from "react";
 import ProductRating from "@/components/ProductRating";
+import { ProductDetailSkeleton } from "@/components/PageSkeletons";
 
 const Product = () => {
 
     const { id } = useParams();
 
-    const { products, router, addToCart, formatCurrency, toggleProductLike } = useAppContext()
+    const { products, addToCart, formatCurrency, navigate, prefetchRoute, toggleProductLike } = useAppContext()
 
     const [mainImage, setMainImage] = useState(null);
     const [productData, setProductData] = useState(null);
     const [liking, setLiking] = useState(false);
+    const [cartAction, setCartAction] = useState(null);
 
     const fetchProductData = async () => {
         const product = products.find(product => product._id === id);
@@ -28,6 +29,8 @@ const Product = () => {
 
     useEffect(() => {
         fetchProductData();
+        // Product details are derived from route params and context products.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id, products])
 
     const handleLikeClick = async () => {
@@ -38,6 +41,31 @@ const Product = () => {
         setLiking(true);
         await toggleProductLike(productData._id);
         setLiking(false);
+    };
+
+    const handleAddToCart = async () => {
+        if (!productData || cartAction) {
+            return;
+        }
+
+        setCartAction('add');
+        await addToCart(productData._id);
+        setCartAction(null);
+    };
+
+    const handleBuyNow = async () => {
+        if (!productData || cartAction) {
+            return;
+        }
+
+        setCartAction('buy');
+        const result = await addToCart(productData._id);
+
+        if (result?.success) {
+            navigate('/cart');
+        } else {
+            setCartAction(null);
+        }
     };
 
     return productData ? (<>
@@ -170,11 +198,27 @@ const Product = () => {
                     )}
 
                     <div className="flex items-center mt-10 gap-4">
-                        <button onClick={() => addToCart(productData._id)} className="w-full py-3.5 bg-gray-100 text-gray-800/80 hover:bg-gray-200 transition">
-                            Add to Cart
+                        <button
+                            onClick={handleAddToCart}
+                            disabled={!!cartAction}
+                            className={`w-full py-3.5 transition ${
+                                cartAction
+                                    ? 'cursor-wait bg-gray-200 text-gray-500'
+                                    : 'bg-gray-100 text-gray-800/80 hover:bg-gray-200'
+                            }`}
+                        >
+                            {cartAction === 'add' ? 'Adding...' : 'Add to Cart'}
                         </button>
-                        <button onClick={() => { addToCart(productData._id); router.push('/cart') }} className="w-full py-3.5 bg-orange-500 text-white hover:bg-orange-600 transition">
-                            Buy now
+                        <button
+                            onClick={handleBuyNow}
+                            disabled={!!cartAction}
+                            className={`w-full py-3.5 text-white transition ${
+                                cartAction
+                                    ? 'cursor-wait bg-orange-400'
+                                    : 'bg-orange-500 hover:bg-orange-600'
+                            }`}
+                        >
+                            {cartAction === 'buy' ? 'Adding...' : 'Buy now'}
                         </button>
                     </div>
                 </div>
@@ -187,14 +231,25 @@ const Product = () => {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-6 pb-14 w-full">
                     {products.slice(0, 5).map((product, index) => <ProductCard key={index} product={product} />)}
                 </div>
-                <button className="px-8 py-2 mb-16 border rounded text-gray-500/70 hover:bg-slate-50/90 transition">
+                <button
+                    onClick={() => navigate('/all-products')}
+                    onMouseEnter={() => prefetchRoute('/all-products')}
+                    onFocus={() => prefetchRoute('/all-products')}
+                    className="px-8 py-2 mb-16 border rounded text-gray-500/70 hover:bg-slate-50/90 transition"
+                >
                     See more
                 </button>
             </div>
         </div>
         <Footer />
     </>
-    ) : <Loading />
+    ) : (
+        <>
+            <Navbar />
+            <ProductDetailSkeleton />
+            <Footer />
+        </>
+    )
 };
 
 export default Product;

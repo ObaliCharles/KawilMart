@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import Loading from '@/components/Loading';
+import { OrdersManagementPageSkeleton } from '@/components/dashboard/DashboardSkeletons';
 
 const statusOptions = ['Order Placed', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'];
 
@@ -19,22 +19,37 @@ const statusColors = {
 export default function AdminOrders() {
     const { getToken, user, authReady, formatCurrency } = useAppContext();
     const [orders, setOrders] = useState([]);
+    const [riders, setRiders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('All');
     const [updatingId, setUpdatingId] = useState(null);
 
     useEffect(() => {
         if (authReady && user) fetchOrders();
+        // Orders/riders refresh when auth state changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authReady, user]);
 
     const fetchOrders = async () => {
         try {
             const token = await getToken();
-            const { data } = await axios.get('/api/admin/orders', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (data.success) setOrders(data.orders);
-            else toast.error(data.message);
+            const headers = { Authorization: `Bearer ${token}` };
+            const [{ data: orderData }, { data: userData }] = await Promise.all([
+                axios.get('/api/admin/orders', { headers }),
+                axios.get('/api/admin/users', { headers }),
+            ]);
+
+            if (orderData.success) {
+                setOrders(orderData.orders);
+            } else {
+                toast.error(orderData.message);
+            }
+
+            if (userData.success) {
+                setRiders(userData.users.filter((account) => account.role === 'rider' || account.role === 'admin'));
+            } else {
+                toast.error(userData.message);
+            }
         } catch (err) {
             toast.error(err.message);
         } finally {
@@ -42,17 +57,20 @@ export default function AdminOrders() {
         }
     };
 
-    const updateStatus = async (orderId, status) => {
+    const updateOrder = async (orderId, updates) => {
         setUpdatingId(orderId);
         try {
             const token = await getToken();
             const { data } = await axios.put('/api/admin/orders',
-                { orderId, status },
+                { orderId, ...updates },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             if (data.success) {
-                setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status } : o));
-                toast.success('Status updated');
+                setOrders(prev => prev.map((order) => order._id === orderId
+                    ? { ...order, ...data.order }
+                    : order
+                ));
+                toast.success(data.message || 'Order updated');
             } else {
                 toast.error(data.message);
             }
@@ -65,7 +83,7 @@ export default function AdminOrders() {
 
     const filtered = filterStatus === 'All' ? orders : orders.filter(o => o.status === filterStatus);
 
-    if (loading) return <Loading />;
+    if (loading) return <OrdersManagementPageSkeleton showTabs />;
 
     return (
         <div className="space-y-6 max-w-7xl">
@@ -107,15 +125,16 @@ export default function AdminOrders() {
                                 <th className="text-left px-5 py-4 text-gray-500 font-medium">Order</th>
                                 <th className="text-left px-5 py-4 text-gray-500 font-medium">Items</th>
                                 <th className="text-left px-5 py-4 text-gray-500 font-medium">Address</th>
-                                <th className="text-left px-5 py-4 text-gray-500 font-medium">Amount</th>
-                                <th className="text-left px-5 py-4 text-gray-500 font-medium">Date</th>
-                                <th className="text-left px-5 py-4 text-gray-500 font-medium">Status</th>
-                            </tr>
+                                    <th className="text-left px-5 py-4 text-gray-500 font-medium">Amount</th>
+                                    <th className="text-left px-5 py-4 text-gray-500 font-medium">Date</th>
+                                    <th className="text-left px-5 py-4 text-gray-500 font-medium">Rider</th>
+                                    <th className="text-left px-5 py-4 text-gray-500 font-medium">Status</th>
+                                </tr>
                         </thead>
                         <tbody>
                             {filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="text-center py-12 text-gray-400">
+                                    <td colSpan={7} className="text-center py-12 text-gray-400">
                                         <span className="text-4xl block mb-2">📭</span>
                                         No orders found
                                     </td>
@@ -150,9 +169,24 @@ export default function AdminOrders() {
                                     </td>
                                     <td className="px-5 py-4">
                                         <select
+                                            value={order.riderId || ''}
+                                            disabled={updatingId === order._id}
+                                            onChange={(e) => updateOrder(order._id, { riderId: e.target.value })}
+                                            className="min-w-[170px] text-xs font-medium px-2 py-1.5 rounded-lg border border-gray-200 outline-none cursor-pointer bg-white"
+                                        >
+                                            <option value="">Unassigned</option>
+                                            {riders.map((rider) => (
+                                                <option key={rider.id} value={rider.id}>
+                                                    {rider.name || rider.email}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </td>
+                                    <td className="px-5 py-4">
+                                        <select
                                             value={order.status}
                                             disabled={updatingId === order._id}
-                                            onChange={(e) => updateStatus(order._id, e.target.value)}
+                                            onChange={(e) => updateOrder(order._id, { status: e.target.value })}
                                             className={`text-xs font-medium px-2 py-1.5 rounded-lg border-0 outline-none cursor-pointer ${statusColors[order.status] || 'bg-gray-100'}`}
                                         >
                                             {statusOptions.map(s => (

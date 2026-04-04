@@ -1,10 +1,10 @@
 import React from 'react'
 
-const Skeleton = ({ className = '' }) => {
+const Skeleton = ({ className = '', animated = true }) => {
   return (
     <div
       aria-hidden="true"
-      className={`animate-pulse rounded-md bg-gray-200 ${className}`}
+      className={`rounded-md bg-[#e6e6e6] ${animated ? 'skeleton-shimmer' : ''} ${className}`}
     />
   )
 }

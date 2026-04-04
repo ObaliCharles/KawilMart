@@ -5,6 +5,8 @@ import authAdmin from "@/lib/authAdmin";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import Address from "@/models/Address";
+import User from "@/models/User";
+import { getUserRole } from "@/lib/userRoleCache";
 
 export async function GET(request) {
     try {
@@ -30,11 +32,45 @@ export async function PUT(request) {
         const isAdmin = await authAdmin(userId);
         if (!isAdmin) return NextResponse.json({ success: false, message: "Unauthorized" });
 
-        const { orderId, status } = await request.json();
+        const { orderId, status, riderId } = await request.json();
         await connectDB();
-        await Order.findByIdAndUpdate(orderId, { status });
 
-        return NextResponse.json({ success: true, message: "Order status updated" });
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });
+        }
+
+        if (typeof status === "string" && status) {
+            order.status = status;
+        }
+
+        if (riderId !== undefined) {
+            if (riderId) {
+                const riderRole = await getUserRole(riderId);
+                if (riderRole !== "rider" && riderRole !== "admin") {
+                    return NextResponse.json({ success: false, message: "Selected user is not a rider" }, { status: 400 });
+                }
+                order.riderId = riderId;
+
+                await User.findByIdAndUpdate(riderId, {
+                    $push: {
+                        notifications: {
+                            type: "order",
+                            title: "New delivery assigned",
+                            message: `Order #${String(order._id).slice(-8).toUpperCase()} has been assigned to you.`,
+                            read: false,
+                            date: new Date(),
+                        }
+                    }
+                });
+            } else {
+                order.riderId = null;
+            }
+        }
+
+        await order.save();
+
+        return NextResponse.json({ success: true, message: "Order updated", order });
     } catch (error) {
         return NextResponse.json({ success: false, message: error.message });
     }

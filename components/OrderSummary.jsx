@@ -6,39 +6,25 @@ import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 const OrderSummary = () => {
-  const { router, getCartCount, getCartAmount, getToken, user, cartItems, setCartItems, authReady, formatCurrency } = useAppContext();
+  const { router, getCartCount, getCartAmount, getToken, user, cartItems, setCartItems, authReady, formatCurrency, fetchUserData } = useAppContext();
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [userAddresses, setUserAddresses] = useState([]);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const cartAmount = getCartAmount();
   const taxAmount = Math.floor(cartAmount * 0.02);
   const totalAmount = cartAmount + taxAmount;
-
-  const fetchUserAddresses = async () => {
-    try {
-      const token = await getToken();
-      const { data } = await axios.get("/api/user/get-address", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (data.success) {
-        setUserAddresses(data.addresses);
-        if (data.addresses.length > 0) setSelectedAddress(data.addresses[0]);
-      } else {
-        toast.error(data.message);
-      }
-    } catch (error) {
-      toast.error(error.message);
-    }
-  };
 
   const handleAddressSelect = (address) => {
     setSelectedAddress(address);
     setIsDropdownOpen(false);
   };
 
-  // ✅ Fixed createOrder function with proper redirection
   const createOrder = async () => {
+    if (isPlacingOrder) {
+      return;
+    }
+
     try {
       if (!selectedAddress) return toast.error("Please select an address");
 
@@ -48,6 +34,7 @@ const OrderSummary = () => {
 
       if (cartItemsArray.length === 0) return toast.error("Cart is empty");
 
+      setIsPlacingOrder(true);
       const token = await getToken();
       const { data } = await axios.post(
         "/api/order/create",
@@ -59,20 +46,47 @@ const OrderSummary = () => {
       );
 
       if (data.success) {
+        setCartItems({});
+        await fetchUserData();
         toast.success(data.message);
-        setCartItems({}); // Clear cart
-        router.push("/order-placed"); // Redirect to existing success page
+        router.replace("/order-placed");
       } else {
         toast.error(data.message);
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error?.response?.data?.message || error.message || "Failed to place order");
+    } finally {
+      setIsPlacingOrder(false);
     }
   };
 
   useEffect(() => {
-    if (authReady && user) fetchUserAddresses();
-  }, [authReady, user]);
+    if (!authReady || !user) {
+      return;
+    }
+
+    const fetchUserAddresses = async () => {
+      try {
+        const token = await getToken();
+        const { data } = await axios.get("/api/user/get-address", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (data.success) {
+          setUserAddresses(data.addresses);
+          if (data.addresses.length > 0) {
+            setSelectedAddress(data.addresses[0]);
+          }
+        } else {
+          toast.error(data.message);
+        }
+      } catch (error) {
+        toast.error(error.message);
+      }
+    };
+
+    void fetchUserAddresses();
+  }, [authReady, getToken, user]);
 
   return (
     <div className="w-full md:w-96 bg-gray-500/5 p-5">
@@ -86,6 +100,7 @@ const OrderSummary = () => {
             <button
               className="peer w-full text-left px-4 pr-2 py-2 bg-white text-gray-700 focus:outline-none"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              disabled={isPlacingOrder}
             >
               <span>
                 {selectedAddress
@@ -161,9 +176,15 @@ const OrderSummary = () => {
 
       <button
         onClick={createOrder}
-        className="w-full bg-orange-600 text-white py-3 mt-5 hover:bg-orange-700"
+        disabled={isPlacingOrder}
+        className="w-full bg-orange-600 text-white py-3 mt-5 hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-70"
       >
-        Place Order
+        <span className="flex items-center justify-center gap-2">
+          {isPlacingOrder && (
+            <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+          )}
+          {isPlacingOrder ? "Placing Order..." : "Place Order"}
+        </span>
       </button>
     </div>
   );

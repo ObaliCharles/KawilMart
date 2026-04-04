@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import Loading from '@/components/Loading';
+import { AdminDashboardPageSkeleton } from '@/components/dashboard/DashboardSkeletons';
 
 const StatCard = ({ icon, label, value, sub, color }) => (
     <div className={`bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-center gap-4`}>
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
         }
     };
 
-    if (loading) return <Loading />;
+    if (loading) return <AdminDashboardPageSkeleton />;
     if (!stats) return (
         <div className="flex flex-col items-center justify-center h-64 text-gray-400">
             <span className="text-5xl mb-4">🔒</span>

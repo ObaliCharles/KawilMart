@@ -1,11 +1,11 @@
 'use client'
 import Link from "next/link";
-import React, { startTransition, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import Image from "next/image";
 
 const FlashDeals = () => {
-  const { products, router, formatCurrency } = useAppContext();
+  const { products, formatCurrency, navigate, prefetchRoute, setIsRouteLoading } = useAppContext();
   const [timeLeft, setTimeLeft] = useState({ hours: 5, minutes: 32, seconds: 58 });
 
   useEffect(() => {
@@ -49,6 +49,7 @@ const FlashDeals = () => {
         </div>
         <Link
           href="/all-products?filter=flash"
+          onClick={() => setIsRouteLoading(true)}
           className="text-orange-600 text-sm font-medium hover:underline flex items-center gap-1"
         >
           See All <span>→</span>
@@ -63,13 +64,11 @@ const FlashDeals = () => {
             <div
               key={product._id}
               onClick={() => {
-                startTransition(() => {
-                  router.push(`/product/${product._id}`);
-                });
+                navigate(`/product/${product._id}`);
                 scrollTo(0, 0);
               }}
-              onMouseEnter={() => router.prefetch(`/product/${product._id}`)}
-              onFocus={() => router.prefetch(`/product/${product._id}`)}
+              onMouseEnter={() => prefetchRoute(`/product/${product._id}`)}
+              onFocus={() => prefetchRoute(`/product/${product._id}`)}
               className="bg-white border border-gray-100 rounded-xl overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-200 group"
             >
               {/* Image */}

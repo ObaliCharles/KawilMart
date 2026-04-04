@@ -4,9 +4,9 @@ import { assets } from "@/assets/assets";
 import Image from "next/image";
 import { useAppContext } from "@/context/AppContext";
 import Footer from "@/components/seller/Footer";
-import Loading from "@/components/Loading";
 import toast from "react-hot-toast";
 import axios from 'axios';
+import { ProductTablePageSkeleton } from "@/components/dashboard/DashboardSkeletons";
 
 const ProductList = () => {
   const { router, getToken, user, authReady, formatCurrency } = useAppContext();
@@ -18,6 +18,8 @@ const ProductList = () => {
 
   const fetchSellerProduct = async () => {
     try {
+      setLoading(true);
+      setProducts([]);
       const token = await getToken();
       const { data } = await axios.get('/api/product/seller-list', {
         headers: { Authorization: `Bearer ${token}` }
@@ -25,7 +27,6 @@ const ProductList = () => {
 
       if (data.success) {
         setProducts(data.products || []);
-        setLoading(false);
 
         //  Show toast only once, even under React Strict Mode
         if (!toastShown) {
@@ -34,11 +35,11 @@ const ProductList = () => {
         }
       } else {
         toast.error(data.message || "Failed to fetch products");
-        setLoading(false);
       }
 
     } catch (error) {
       toast.error(error?.response?.data?.message || error.message || "Something went wrong");
+    } finally {
       setLoading(false);
     }
   };
@@ -77,7 +78,7 @@ const ProductList = () => {
 
   return (
     <div className="flex-1 min-h-screen flex flex-col justify-between">
-      {loading ? <Loading /> : (
+      {loading ? <ProductTablePageSkeleton /> : (
         <div className="w-full md:p-10 p-4">
           <h2 className="pb-4 text-lg font-medium">All Products</h2>
           <div className="flex flex-col items-center max-w-4xl w-full overflow-hidden rounded-md bg-white border border-gray-500/20">

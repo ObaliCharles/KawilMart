@@ -1,5 +1,5 @@
 'use client'
-import React, { startTransition, useState } from 'react'
+import React, { useState } from 'react'
 import { assets } from '@/assets/assets'
 import Image from 'next/image';
 import { useAppContext } from '@/context/AppContext';
@@ -16,16 +16,34 @@ const getShopLocation = (productId) => {
   return shopLocations[index];
 };
 
+const getPromotionBadge = (product) => {
+    if (product.isFlashDeal || product.promotionType === 'flash_deal') {
+        return { label: 'Flash Deal', className: 'bg-red-100 text-red-700' };
+    }
+
+    if (product.promotionType === 'discount') {
+        return { label: 'Discount', className: 'bg-orange-100 text-orange-700' };
+    }
+
+    if (product.promotionType === 'featured') {
+        return { label: 'Featured', className: 'bg-blue-100 text-blue-700' };
+    }
+
+    return { label: 'Normal', className: 'bg-gray-100 text-gray-600' };
+};
+
 const ProductCard = ({ product }) => {
-    const { router, addToCart, formatCurrency, toggleProductLike } = useAppContext();
+    const { addToCart, formatCurrency, navigate, prefetchRoute, toggleProductLike } = useAppContext();
     const productHref = `/product/${product._id}`;
     const [liking, setLiking] = useState(false);
+    const [isAdding, setIsAdding] = useState(false);
 
     const discountPercent = product.price && product.price > product.offerPrice
       ? Math.round(((product.price - product.offerPrice) / product.price) * 100)
       : null;
 
     const location = product.location || getShopLocation(product._id);
+    const promotionBadge = getPromotionBadge(product);
 
     const handleLikeClick = async (e) => {
         e.stopPropagation();
@@ -39,16 +57,26 @@ const ProductCard = ({ product }) => {
         setLiking(false);
     };
 
+    const handleAddToCart = async (e) => {
+        e.stopPropagation();
+
+        if (isAdding) {
+            return;
+        }
+
+        setIsAdding(true);
+        await addToCart(product._id);
+        setIsAdding(false);
+    };
+
     return (
         <div
             onClick={() => {
-                startTransition(() => {
-                    router.push(productHref);
-                });
+                navigate(productHref);
                 scrollTo(0, 0);
             }}
-            onMouseEnter={() => router.prefetch(productHref)}
-            onFocus={() => router.prefetch(productHref)}
+            onMouseEnter={() => prefetchRoute(productHref)}
+            onFocus={() => prefetchRoute(productHref)}
             className="flex flex-col items-start gap-0.5 max-w-[220px] w-full cursor-pointer"
         >
             <div className="cursor-pointer group relative bg-gray-500/10 rounded-lg w-full h-52 flex items-center justify-center overflow-hidden">
@@ -87,6 +115,9 @@ const ProductCard = ({ product }) => {
             </div>
 
             <p className="md:text-base font-medium pt-2 w-full truncate">{product.name}</p>
+            <div className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${promotionBadge.className}`}>
+              {promotionBadge.label}
+            </div>
             <p className="w-full text-xs text-gray-500/70 max-sm:hidden truncate">{product.description}</p>
 
             {/* Shop location */}
@@ -105,10 +136,13 @@ const ProductCard = ({ product }) => {
                   )}
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); addToCart(product._id); }}
-                  className="max-sm:hidden px-4 py-1.5 text-white bg-orange-600 border border-orange-600 rounded-full text-xs hover:bg-orange-700 transition font-medium"
+                  onClick={handleAddToCart}
+                  disabled={isAdding}
+                  className={`max-sm:hidden px-4 py-1.5 text-white bg-orange-600 border border-orange-600 rounded-full text-xs transition font-medium ${
+                    isAdding ? 'cursor-wait opacity-75' : 'hover:bg-orange-700'
+                  }`}
                 >
-                    Add to Cart
+                    {isAdding ? 'Adding...' : 'Add to Cart'}
                 </button>
             </div>
         </div>

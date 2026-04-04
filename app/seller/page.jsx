@@ -3,10 +3,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { assets } from "@/assets/assets";
 import Image from "next/image";
 import { useAppContext } from "@/context/AppContext";
-import Loading from "@/components/Loading";
 import toast from "react-hot-toast";
 import axios from 'axios';
 import { useSearchParams } from "next/navigation";
+import { SellerProductFormSkeleton } from "@/components/dashboard/DashboardSkeletons";
 
 
 const AddProduct = () => {
@@ -156,7 +156,7 @@ const AddProduct = () => {
   return (
     <div className="flex-1 min-h-screen flex flex-col justify-between">
       {loadingProduct ? (
-        <Loading message="Loading product details..." />
+        <SellerProductFormSkeleton />
       ) : (
       <form onSubmit={handleSubmit} className="md:p-10 p-4 space-y-5 max-w-lg">
         <div>

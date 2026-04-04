@@ -5,9 +5,9 @@ import Image from "next/image";
 import { useAppContext } from "@/context/AppContext";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
-import Loading from "@/components/Loading";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { OrdersPageSkeleton } from "@/components/PageSkeletons";
 
 const MyOrders = () => {
     const { getToken, user, authReady, formatCurrency } = useAppContext();
@@ -42,7 +42,7 @@ const MyOrders = () => {
             <div className="flex flex-col justify-between px-6 md:px-16 lg:px-32 py-6 min-h-screen">
                 <div className="space-y-5">
                     <h2 className="text-lg font-medium mt-6">My Orders</h2>
-                    {loading ? <Loading /> : (
+                    {loading ? <OrdersPageSkeleton titleWidth="w-32" /> : (
                         <div className="max-w-5xl border-t border-gray-300 text-sm">
                             {orders.map((order, index) => (
                                 <div key={index} className="flex flex-col md:flex-row gap-5 justify-between p-5 border-b border-gray-300">

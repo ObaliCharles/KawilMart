@@ -2,6 +2,7 @@
 import ProductCard from "@/components/ProductCard";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { AllProductsPageSkeleton, ProductsGridSkeleton } from "@/components/PageSkeletons";
 import { useAppContext } from "@/context/AppContext";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -201,10 +202,7 @@ function AllProductsInner() {
           {/* Products */}
           <div className="flex-1">
             {loadingProducts ? (
-              <div className="flex flex-col items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-16 w-16 border-4 border-t-orange-300 border-gray-200 mb-4"></div>
-                <p className="text-gray-600 text-lg">Refreshing products...</p>
-              </div>
+              <ProductsGridSkeleton showHeader={false} />
             ) : filteredProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                 <span className="text-5xl mb-4">🔍</span>
@@ -227,7 +225,7 @@ function AllProductsInner() {
 }
 
 const AllProducts = () => (
-  <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+  <Suspense fallback={<AllProductsPageSkeleton />}>
     <AllProductsInner />
   </Suspense>
 );

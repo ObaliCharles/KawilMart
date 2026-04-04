@@ -4,14 +4,28 @@ import { assets } from "@/assets/assets";
 import Image from "next/image";
 import { useAppContext } from "@/context/AppContext";
 import Footer from "@/components/seller/Footer";
-import Loading from "@/components/Loading";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { OrdersManagementPageSkeleton } from "@/components/dashboard/DashboardSkeletons";
+
+const statusColors = {
+    'Order Placed': 'bg-blue-100 text-blue-700',
+    'Confirmed': 'bg-sky-100 text-sky-700',
+    'Preparing': 'bg-amber-100 text-amber-700',
+    'Processing': 'bg-yellow-100 text-yellow-700',
+    'Ready for Delivery': 'bg-cyan-100 text-cyan-700',
+    'Shipped': 'bg-purple-100 text-purple-700',
+    'Out for Delivery': 'bg-indigo-100 text-indigo-700',
+    'Delivered': 'bg-green-100 text-green-700',
+    'Cancelled': 'bg-red-100 text-red-700',
+};
 
 const Orders = () => {
     const { getToken, user, authReady, formatCurrency } = useAppContext();
     const [orders, setOrders] = useState([]);
+    const [riders, setRiders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [updatingId, setUpdatingId] = useState(null);
 
     const fetchSellerOrders = async () => {
         try {
@@ -21,15 +35,43 @@ const Orders = () => {
             });
 
             if (data.success) {
-                setOrders(data.orders);
-                setLoading(false);
+                setOrders(data.orders || []);
+                setRiders(data.riders || []);
             } else {
                 toast.error(data.message);
             }
         } catch (error) {
             toast.error(error.message);
+        } finally {
+            setLoading(false);
         }
     }
+
+    const updateOrderRider = async (orderId, riderId) => {
+        setUpdatingId(orderId);
+
+        try {
+            const token = await getToken();
+            const { data } = await axios.put(
+                '/api/order/seller-orders',
+                { orderId, riderId },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (data.success) {
+                setOrders((prevOrders) => prevOrders.map((order) => (
+                    order._id === orderId ? { ...order, riderId: data.order.riderId || null } : order
+                )));
+                toast.success(data.message);
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error?.response?.data?.message || error.message || 'Failed to update rider');
+        } finally {
+            setUpdatingId(null);
+        }
+    };
 
     useEffect(() => {
         if (authReady && user) fetchSellerOrders();
@@ -37,42 +79,91 @@ const Orders = () => {
 
     return (
         <div className="flex-1 h-screen overflow-scroll flex flex-col justify-between text-sm">
-            {loading ? <Loading /> : (
+            {loading ? <div className="md:p-10 p-4"><OrdersManagementPageSkeleton /></div> : (
                 <div className="md:p-10 p-4 space-y-5">
-                    <h2 className="text-lg font-medium">Orders</h2>
-                    <div className="max-w-4xl rounded-md">
-                        {orders.map((order, index) => (
-                            <div key={index} className="flex flex-col md:flex-row gap-5 justify-between p-5 border-t border-gray-300">
-                                <div className="flex-1 flex gap-5 max-w-80">
+                    <div>
+                        <h2 className="text-lg font-medium">Orders</h2>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Assign riders directly from your seller dashboard.
+                        </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+                        {orders.length === 0 ? (
+                            <div className="p-10 text-center text-gray-400">
+                                No orders yet
+                            </div>
+                        ) : orders.map((order) => (
+                            <div
+                                key={order._id}
+                                className="grid grid-cols-1 xl:grid-cols-[1.5fr_1.1fr_0.75fr_0.9fr_1.05fr_0.75fr] gap-5 p-5 border-t border-gray-100 first:border-t-0"
+                            >
+                                <div className="flex gap-4">
                                     <Image
-                                        className="max-w-16 max-h-16 object-cover"
+                                        className="h-16 w-16 object-cover"
                                         src={assets.box_icon}
                                         alt="box_icon"
+                                        width={64}
+                                        height={64}
                                     />
-                                    <p className="flex flex-col gap-3">
-                                        <span className="font-medium">
+                                    <div className="space-y-2">
+                                        <p className="font-medium">
                                             {order.items.map(item => `${item.product?.name || 'Deleted Product'} x ${item.quantity}`).join(", ")}
-                                        </span>
-                                        <span>
-                                            Items : {order.items.reduce((sum, item) => sum + item.quantity, 0)}
-                                        </span>
-                                    </p>
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            Order #{String(order._id).slice(-8).toUpperCase()}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            Items: {order.items.reduce((sum, item) => sum + item.quantity, 0)}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p>
-                                        <span className="font-medium">{order.address.fullName}</span><br />
-                                        <span>{order.address.area}</span><br />
-                                        <span>{`${order.address.city}, ${order.address.state}`}</span><br />
-                                        <span>{order.address.phoneNumber}</span>
-                                    </p>
+
+                                <div className="text-sm text-gray-600">
+                                    <p className="font-medium text-gray-800">{order.address?.fullName || 'No name'}</p>
+                                    <p>{order.address?.area || 'No area'}</p>
+                                    <p>{order.address ? `${order.address.city}, ${order.address.state}` : 'No city'}</p>
+                                    <p>{order.address?.phoneNumber || 'No phone'}</p>
                                 </div>
-                                <p className="font-medium my-auto">{formatCurrency(order.amount)}</p>
-                                <div>
-                                    <p className="flex flex-col">
-                                        <span>Method : COD</span>
-                                        <span>Date : {new Date(order.date).toLocaleDateString()}</span>
-                                        <span>Payment : Pending</span>
+
+                                <div className="font-medium text-gray-800">
+                                    {formatCurrency(order.amount)}
+                                </div>
+
+                                <div className="text-sm text-gray-500">
+                                    <p>Method: COD</p>
+                                    <p>Date: {new Date(order.date).toLocaleDateString()}</p>
+                                    <p>Payment: {order.paymentStatus || 'Pending'}</p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                        Assign Rider
                                     </p>
+                                    <select
+                                        value={order.riderId || ''}
+                                        disabled={updatingId === order._id}
+                                        onChange={(e) => updateOrderRider(order._id, e.target.value)}
+                                        className="w-full min-w-[190px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
+                                    >
+                                        <option value="">Unassigned</option>
+                                        {riders.map((rider) => (
+                                            <option key={rider.id} value={rider.id}>
+                                                {rider.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {order.riderId && (
+                                        <p className="text-xs text-gray-500">
+                                            Assigned
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="flex items-start xl:justify-end">
+                                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-600'}`}>
+                                        {order.status}
+                                    </span>
                                 </div>
                             </div>
                         ))}

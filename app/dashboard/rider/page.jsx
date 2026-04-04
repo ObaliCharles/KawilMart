@@ -3,11 +3,11 @@ import React, { useEffect, useState } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import Loading from '@/components/Loading';
 import Navbar from '@/components/Navbar';
 import Image from 'next/image';
 import { assets } from '@/assets/assets';
 import Link from 'next/link';
+import { RiderDashboardSkeleton } from '@/components/dashboard/DashboardSkeletons';
 
 const statusColors = {
     'Order Placed': { bg: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
@@ -84,7 +84,7 @@ export default function RiderDashboard() {
     if (loading) return (
         <>
             <Navbar />
-            <div className="flex items-center justify-center min-h-[60vh]"><Loading /></div>
+            <RiderDashboardSkeleton />
         </>
     );
 

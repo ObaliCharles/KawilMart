@@ -11,7 +11,8 @@ export async function GET(request) {
         await connectDB()
 
         const { searchParams } = new URL(request.url)
-        const limit = parseInt(searchParams.get('limit')) || 20
+        const rawLimit = parseInt(searchParams.get('limit') || '', 10)
+        const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 1000
         const page = parseInt(searchParams.get('page')) || 1
         const skip = (page - 1) * limit
 

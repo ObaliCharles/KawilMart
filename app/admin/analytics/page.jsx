@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import Loading from '@/components/Loading';
+import { AnalyticsPageSkeleton } from '@/components/dashboard/DashboardSkeletons';
 
 export default function AdminAnalytics() {
     const { getToken, user, authReady, formatCurrency, formatCompactCurrency } = useAppContext();
@@ -29,7 +29,7 @@ export default function AdminAnalytics() {
         }
     };
 
-    if (loading) return <Loading />;
+    if (loading) return <AnalyticsPageSkeleton />;
     if (!stats) return <div className="text-center py-20 text-gray-400">No data available</div>;
 
     const maxRevenue = Math.max(...stats.revenueByDay.map(d => d.revenue), 1);

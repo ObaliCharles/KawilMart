@@ -5,6 +5,7 @@ import authRider from "@/lib/authRider";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import Address from "@/models/Address";
+import { getUserRole } from "@/lib/userRoleCache";
 
 export async function GET(request) {
     try {
@@ -13,11 +14,16 @@ export async function GET(request) {
         if (!isRider) return NextResponse.json({ success: false, message: "Unauthorized" });
 
         await connectDB();
+        const role = await getUserRole(userId);
+        const baseFilter = {
+            status: { $in: ['Shipped', 'Out for Delivery', 'Processing', 'Order Placed', 'Delivered'] }
+        };
 
-        // Riders see orders that are Shipped or Out for Delivery
-        const deliveries = await Order.find({
-            status: { $in: ['Shipped', 'Out for Delivery', 'Processing', 'Order Placed'] }
-        })
+        const deliveries = await Order.find(
+            role === 'admin'
+                ? baseFilter
+                : { ...baseFilter, riderId: userId }
+        )
             .populate({ path: "items.product", model: Product })
             .populate({ path: "address", model: Address })
             .sort({ date: -1 });
@@ -33,6 +39,7 @@ export async function PUT(request) {
         const userId = await getRequestUserId(request);
         const isRider = await authRider(userId);
         if (!isRider) return NextResponse.json({ success: false, message: "Unauthorized" });
+        const role = await getUserRole(userId);
 
         const { orderId, status } = await request.json();
         const allowedStatuses = ['Out for Delivery', 'Delivered'];
@@ -41,7 +48,17 @@ export async function PUT(request) {
         }
 
         await connectDB();
-        await Order.findByIdAndUpdate(orderId, { status });
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });
+        }
+
+        if (role !== 'admin' && order.riderId !== userId) {
+            return NextResponse.json({ success: false, message: "This delivery is not assigned to you" }, { status: 403 });
+        }
+
+        order.status = status;
+        await order.save();
 
         return NextResponse.json({ success: true, message: `Marked as ${status}` });
     } catch (error) {

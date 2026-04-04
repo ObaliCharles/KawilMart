@@ -24,9 +24,7 @@ export async function POST(request) {
                     content,
                     read: false,
                     date: new Date()
-                }
-            },
-            $push: {
+                },
                 notifications: {
                     type: 'message',
                     title: `New message: ${subject}`,

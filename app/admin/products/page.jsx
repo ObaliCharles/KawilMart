@@ -1,18 +1,36 @@
 'use client'
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '@/context/AppContext';
-import Loading from '@/components/Loading';
 import Image from 'next/image';
-import toast from 'react-hot-toast';
+import { ProductGridPageSkeleton } from '@/components/dashboard/DashboardSkeletons';
 
 export default function AdminProducts() {
-    const { products, fetchProductData, router, getToken, formatCurrency } = useAppContext();
+    const { products, fetchProductData, router, formatCurrency } = useAppContext();
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filterCat, setFilterCat] = useState('All');
 
     useEffect(() => {
-        fetchProductData().finally(() => setLoading(false));
+        let isMounted = true;
+
+        const loadProducts = async () => {
+            setLoading(true);
+            try {
+                await fetchProductData();
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        void loadProducts();
+
+        return () => {
+            isMounted = false;
+        };
+        // This page should load once on entry; the context recreates fetchProductData on re-render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const categories = ['All', ...new Set(products.map(p => p.category))];
@@ -23,7 +41,7 @@ export default function AdminProducts() {
         return matchCat && matchSearch;
     });
 
-    if (loading) return <Loading />;
+    if (loading) return <ProductGridPageSkeleton />;
 
     return (
         <div className="space-y-6 max-w-7xl">

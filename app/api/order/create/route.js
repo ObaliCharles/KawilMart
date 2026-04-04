@@ -7,6 +7,27 @@ import { getRequestUserId } from "@/lib/requestAuth";
 import { NextResponse } from "next/server";
 import { inngest } from "@/config/inngest";
 
+const sendOrderEvents = (createdOrders, userId, address) => {
+  return Promise.allSettled(
+    createdOrders.map((order) =>
+      inngest.send({
+        name: "order/created",
+        data: {
+          orderId: order._id.toString(),
+          userId,
+          sellerId: order.sellerId,
+          items: order.items,
+          address,
+          amount: order.amount,
+          date: order.date,
+        },
+      })
+    )
+  ).catch((error) => {
+    console.error("Failed to queue order event(s):", error);
+  });
+};
+
 export async function POST(request) {
   try {
     await connectDB();
@@ -77,33 +98,46 @@ export async function POST(request) {
     }
 
     const createdOrders = await Order.create(orderPayloads);
-
-    console.log("Orders created in MongoDB:", createdOrders);
-
-    // Clear user cart
-    const user = await User.findById(userId);
-    if (user) {
-      user.cartItems = {};
-      await user.save();
-    }
-
-    // Send event to Inngest for logging
-    await Promise.all(
-      createdOrders.map((order) =>
-        inngest.send({
-          name: "order/created",
-          data: {
-            orderId: order._id.toString(),
-            userId,
-            sellerId: order.sellerId,
-            items: order.items,
-            address,
-            amount: order.amount,
-            date: order.date,
-          },
-        })
-      )
+    const totalItems = createdOrders.reduce(
+      (sum, order) => sum + order.items.reduce((orderSum, item) => orderSum + item.quantity, 0),
+      0
     );
+
+    await User.findByIdAndUpdate(userId, {
+      $set: { cartItems: {} },
+      $push: {
+        notifications: {
+          type: "order",
+          title: createdOrders.length > 1 ? "Orders placed successfully" : "Order placed successfully",
+          message: `Your order for ${totalItems} item${totalItems === 1 ? "" : "s"} totaling UGX ${createdOrders
+            .reduce((sum, order) => sum + (order.amount || 0), 0)
+            .toLocaleString("en-UG")} has been received.`,
+          read: false,
+          date: new Date(),
+        },
+      },
+    });
+
+    await User.bulkWrite(
+      createdOrders.map((order) => ({
+        updateOne: {
+          filter: { _id: order.sellerId },
+          update: {
+            $push: {
+              notifications: {
+                type: "order",
+                title: "New order received",
+                message: `Order #${String(order._id).slice(-8).toUpperCase()} includes ${order.items.reduce((sum, item) => sum + item.quantity, 0)} item${order.items.reduce((sum, item) => sum + item.quantity, 0) === 1 ? "" : "s"}.`,
+                read: false,
+                date: new Date(),
+              },
+            },
+          },
+        },
+      }))
+    );
+
+    void sendOrderEvents(createdOrders, userId, address);
 
     return NextResponse.json({
       success: true,
