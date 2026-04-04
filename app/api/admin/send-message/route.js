@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import authAdmin from "@/lib/authAdmin";
 import connectDB from "@/config/db";
 import User from "@/models/User";
+import { notifyUsers } from "@/lib/notifyUsers";
 
 export async function POST(request) {
     try {
@@ -15,7 +16,15 @@ export async function POST(request) {
         await connectDB();
 
         // Add message to recipient's messages array
-        const updatedUser = await User.findByIdAndUpdate(to, {
+        const messageNotification = {
+            type: 'message',
+            title: `New message: ${subject}`,
+            message: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+            read: false,
+            date: new Date()
+        };
+
+        await User.findByIdAndUpdate(to, {
             $push: {
                 messages: {
                     from: userId,
@@ -25,15 +34,19 @@ export async function POST(request) {
                     read: false,
                     date: new Date()
                 },
-                notifications: {
-                    type: 'message',
-                    title: `New message: ${subject}`,
-                    message: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
-                    read: false,
-                    date: new Date()
-                }
             }
         }, { new: true });
+
+        await notifyUsers([
+            {
+                userId: to,
+                notification: messageNotification,
+                emailTitle: `New admin message: ${subject}`,
+                emailMessage: content,
+                ctaLabel: "Open notifications",
+                ctaPath: "/notifications",
+            },
+        ]);
 
         return NextResponse.json({
             success: true,

@@ -6,6 +6,8 @@ import User from "@/models/User";
 import { getRequestUserId } from "@/lib/requestAuth";
 import { NextResponse } from "next/server";
 import { inngest } from "@/config/inngest";
+import { createStatusTrackingEvent } from "@/lib/orderTracking";
+import { notifyUsers } from "@/lib/notifyUsers";
 
 const sendOrderEvents = (createdOrders, userId, address) => {
   return Promise.allSettled(
@@ -90,6 +92,7 @@ export async function POST(request) {
         amount: Math.floor(amount + amount * 0.02),
         address,
         customerPhone: addressDoc.phoneNumber || "",
+        trackingEvents: [createStatusTrackingEvent('Order Placed')],
         date: Date.now(),
       }));
 
@@ -105,37 +108,45 @@ export async function POST(request) {
 
     await User.findByIdAndUpdate(userId, {
       $set: { cartItems: {} },
-      $push: {
-        notifications: {
+    });
+
+    const totalAmount = createdOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
+
+    await notifyUsers([
+      {
+        userId,
+        notification: {
           type: "order",
           title: createdOrders.length > 1 ? "Orders placed successfully" : "Order placed successfully",
-          message: `Your order for ${totalItems} item${totalItems === 1 ? "" : "s"} totaling UGX ${createdOrders
-            .reduce((sum, order) => sum + (order.amount || 0), 0)
-            .toLocaleString("en-UG")} has been received.`,
+          message: `Your order for ${totalItems} item${totalItems === 1 ? "" : "s"} totaling UGX ${totalAmount.toLocaleString("en-UG")} has been received.`,
           read: false,
           date: new Date(),
         },
+        emailTitle: createdOrders.length > 1 ? "Your KawilMart orders were placed" : "Your KawilMart order was placed",
+        emailMessage: `We have received your order for ${totalItems} item${totalItems === 1 ? "" : "s"} totaling UGX ${totalAmount.toLocaleString("en-UG")}. You can track progress from your orders page.`,
+        ctaLabel: "Track my order",
+        ctaPath: "/my-orders",
       },
-    });
+      ...createdOrders.map((order) => {
+        const orderItemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+        const shortOrderId = String(order._id).slice(-8).toUpperCase();
 
-    await User.bulkWrite(
-      createdOrders.map((order) => ({
-        updateOne: {
-          filter: { _id: order.sellerId },
-          update: {
-            $push: {
-              notifications: {
-                type: "order",
-                title: "New order received",
-                message: `Order #${String(order._id).slice(-8).toUpperCase()} includes ${order.items.reduce((sum, item) => sum + item.quantity, 0)} item${order.items.reduce((sum, item) => sum + item.quantity, 0) === 1 ? "" : "s"}.`,
-                read: false,
-                date: new Date(),
-              },
-            },
+        return {
+          userId: order.sellerId,
+          notification: {
+            type: "order",
+            title: "New order received",
+            message: `Order #${shortOrderId} includes ${orderItemCount} item${orderItemCount === 1 ? "" : "s"}.`,
+            read: false,
+            date: new Date(),
           },
-        },
-      }))
-    );
+          emailTitle: `New order received: #${shortOrderId}`,
+          emailMessage: `A new customer order has been placed on KawilMart. Order #${shortOrderId} includes ${orderItemCount} item${orderItemCount === 1 ? "" : "s"} and is ready for your processing.`,
+          ctaLabel: "View seller orders",
+          ctaPath: "/seller/orders",
+        };
+      }),
+    ]);
 
     void sendOrderEvents(createdOrders, userId, address);
 

@@ -20,12 +20,20 @@ const statusColors = {
     'Cancelled': 'bg-red-100 text-red-700',
 };
 
+const paymentStatusColors = {
+    Pending: 'bg-amber-100 text-amber-700',
+    Paid: 'bg-green-100 text-green-700',
+    Failed: 'bg-red-100 text-red-700',
+};
+
+const paymentStatusOptions = ['Pending', 'Paid', 'Failed'];
+
 const Orders = () => {
     const { getToken, user, authReady, formatCurrency } = useAppContext();
     const [orders, setOrders] = useState([]);
     const [riders, setRiders] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [updatingId, setUpdatingId] = useState(null);
+    const [updatingState, setUpdatingState] = useState({ orderId: null, field: '' });
 
     const fetchSellerOrders = async () => {
         try {
@@ -45,32 +53,47 @@ const Orders = () => {
         } finally {
             setLoading(false);
         }
-    }
+    };
 
-    const updateOrderRider = async (orderId, riderId) => {
-        setUpdatingId(orderId);
+    const updateOrder = async (orderId, updates, field) => {
+        setUpdatingState({ orderId, field });
 
         try {
             const token = await getToken();
             const { data } = await axios.put(
                 '/api/order/seller-orders',
-                { orderId, riderId },
+                { orderId, ...updates },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (data.success) {
                 setOrders((prevOrders) => prevOrders.map((order) => (
-                    order._id === orderId ? { ...order, riderId: data.order.riderId || null } : order
+                    order._id === orderId
+                        ? {
+                            ...order,
+                            riderId: data.order?.riderId || null,
+                            paymentStatus: data.order?.paymentStatus || 'Pending',
+                            trackingEvents: data.order?.trackingEvents || order.trackingEvents,
+                        }
+                        : order
                 )));
                 toast.success(data.message);
             } else {
                 toast.error(data.message);
             }
         } catch (error) {
-            toast.error(error?.response?.data?.message || error.message || 'Failed to update rider');
+            toast.error(error?.response?.data?.message || error.message || 'Failed to update order');
         } finally {
-            setUpdatingId(null);
+            setUpdatingState({ orderId: null, field: '' });
         }
+    };
+
+    const updateOrderRider = async (orderId, riderId) => {
+        await updateOrder(orderId, { riderId }, 'rider');
+    };
+
+    const updatePaymentStatus = async (orderId, paymentStatus) => {
+        await updateOrder(orderId, { paymentStatus }, 'payment');
     };
 
     useEffect(() => {
@@ -84,7 +107,7 @@ const Orders = () => {
                     <div>
                         <h2 className="text-lg font-medium">Orders</h2>
                         <p className="text-sm text-gray-500 mt-1">
-                            Assign riders directly from your seller dashboard.
+                            Assign riders and manage payment statuses directly from your seller dashboard.
                         </p>
                     </div>
 
@@ -93,7 +116,12 @@ const Orders = () => {
                             <div className="p-10 text-center text-gray-400">
                                 No orders yet
                             </div>
-                        ) : orders.map((order) => (
+                        ) : orders.map((order) => {
+                            const isUpdatingOrder = updatingState.orderId === order._id;
+                            const isUpdatingRider = isUpdatingOrder && updatingState.field === 'rider';
+                            const isUpdatingPayment = isUpdatingOrder && updatingState.field === 'payment';
+
+                            return (
                             <div
                                 key={order._id}
                                 className="grid grid-cols-1 xl:grid-cols-[1.5fr_1.1fr_0.75fr_0.9fr_1.05fr_0.75fr] gap-5 p-5 border-t border-gray-100 first:border-t-0"
@@ -133,7 +161,29 @@ const Orders = () => {
                                 <div className="text-sm text-gray-500">
                                     <p>Method: COD</p>
                                     <p>Date: {new Date(order.date).toLocaleDateString()}</p>
-                                    <p>Payment: {order.paymentStatus || 'Pending'}</p>
+                                    <div className="mt-3 space-y-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                            Payment Status
+                                        </p>
+                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${paymentStatusColors[order.paymentStatus || 'Pending'] || 'bg-gray-100 text-gray-600'}`}>
+                                            {order.paymentStatus || 'Pending'}
+                                        </span>
+                                        <select
+                                            value={order.paymentStatus || 'Pending'}
+                                            disabled={isUpdatingOrder}
+                                            onChange={(e) => updatePaymentStatus(order._id, e.target.value)}
+                                            className="w-full min-w-[180px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none"
+                                        >
+                                            {paymentStatusOptions.map((status) => (
+                                                <option key={status} value={status}>
+                                                    {status}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {isUpdatingPayment && (
+                                            <p className="text-xs text-amber-600">Saving payment status...</p>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="space-y-2">
@@ -142,7 +192,7 @@ const Orders = () => {
                                     </p>
                                     <select
                                         value={order.riderId || ''}
-                                        disabled={updatingId === order._id}
+                                        disabled={isUpdatingOrder}
                                         onChange={(e) => updateOrderRider(order._id, e.target.value)}
                                         className="w-full min-w-[190px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
                                     >
@@ -153,11 +203,15 @@ const Orders = () => {
                                             </option>
                                         ))}
                                     </select>
-                                    {order.riderId && (
+                                    {isUpdatingRider ? (
+                                        <p className="text-xs text-amber-600">
+                                            Saving rider assignment...
+                                        </p>
+                                    ) : order.riderId ? (
                                         <p className="text-xs text-gray-500">
                                             Assigned
                                         </p>
-                                    )}
+                                    ) : null}
                                 </div>
 
                                 <div className="flex items-start xl:justify-end">
@@ -166,7 +220,8 @@ const Orders = () => {
                                     </span>
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             )}

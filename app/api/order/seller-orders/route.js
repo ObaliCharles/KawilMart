@@ -6,8 +6,14 @@ import connectDB from "@/config/db";
 import Address from "@/models/Address"; // ensures Mongoose registers Address
 import Order from "@/models/Order"; // ensures Mongoose registers Order
 import Product from "@/models/Product"; // ensures Mongoose registers Product
-import User from "@/models/User";
 import { getUserRole } from "@/lib/userRoleCache";
+import {
+  createAssignmentNotification,
+  createPaymentNotification,
+  createPaymentTrackingEvent,
+  createRiderAssignmentTrackingEvent,
+} from "@/lib/orderTracking";
+import { notifyUsers } from "@/lib/notifyUsers";
 
 const toDisplayName = (clerkUser) => {
   const fullName = `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim();
@@ -66,7 +72,7 @@ export async function PUT(request) {
       return NextResponse.json({ success: false, message: "Unauthorized" });
     }
 
-    const { orderId, riderId } = await request.json();
+    const { orderId, riderId, paymentStatus } = await request.json();
     if (!orderId) {
       return NextResponse.json({ success: false, message: "Order ID is required" }, { status: 400 });
     }
@@ -79,37 +85,115 @@ export async function PUT(request) {
     }
 
     const previousRiderId = order.riderId || null;
+    const previousPaymentStatus = order.paymentStatus || "Pending";
+    const validPaymentStatuses = Order.schema.path("paymentStatus")?.enumValues || ["Pending", "Paid", "Failed"];
+    const customerNotifications = [];
+    const outboundNotifications = [];
+    const updatedFields = [];
 
-    if (riderId) {
-      const riderRole = await getUserRole(riderId);
-      if (riderRole !== "rider" && riderRole !== "admin") {
-        return NextResponse.json({ success: false, message: "Selected user is not a rider" }, { status: 400 });
+    if (riderId !== undefined) {
+      if (riderId) {
+        const riderRole = await getUserRole(riderId);
+        if (riderRole !== "rider" && riderRole !== "admin") {
+          return NextResponse.json({ success: false, message: "Selected user is not a rider" }, { status: 400 });
+        }
+
+        order.riderId = riderId;
+
+        if (riderId !== previousRiderId) {
+          const shortOrderId = String(order._id).slice(-8).toUpperCase();
+          order.trackingEvents = [
+            ...(order.trackingEvents || []),
+            createRiderAssignmentTrackingEvent({ assigned: true }),
+          ];
+          customerNotifications.push(createAssignmentNotification(order._id, true));
+          outboundNotifications.push({
+            userId: riderId,
+            notification: {
+              type: "order",
+              title: "New delivery assigned",
+              message: `Order #${shortOrderId} has been assigned to you.`,
+              read: false,
+              date: new Date(),
+            },
+            emailTitle: `New delivery assigned: #${shortOrderId}`,
+            emailMessage: `Order #${shortOrderId} has been assigned to you for delivery. Open your rider dashboard to review the delivery details.`,
+            ctaLabel: "Open rider dashboard",
+            ctaPath: "/dashboard/rider",
+          });
+          updatedFields.push("rider");
+        }
+      } else {
+        order.riderId = null;
+
+        if (previousRiderId) {
+          order.trackingEvents = [
+            ...(order.trackingEvents || []),
+            createRiderAssignmentTrackingEvent({ assigned: false }),
+          ];
+          customerNotifications.push(createAssignmentNotification(order._id, false));
+          updatedFields.push("rider");
+        }
+      }
+    }
+
+    if (paymentStatus !== undefined) {
+      const normalizedPaymentStatus = typeof paymentStatus === "string" ? paymentStatus.trim() : "";
+
+      if (!validPaymentStatuses.includes(normalizedPaymentStatus)) {
+        return NextResponse.json({
+          success: false,
+          message: `Invalid payment status. Allowed values: ${validPaymentStatuses.join(", ")}`,
+        }, { status: 400 });
       }
 
-      order.riderId = riderId;
-    } else {
-      order.riderId = null;
+      if (normalizedPaymentStatus !== previousPaymentStatus) {
+        order.paymentStatus = normalizedPaymentStatus;
+        order.trackingEvents = [
+          ...(order.trackingEvents || []),
+          createPaymentTrackingEvent(normalizedPaymentStatus),
+        ];
+        customerNotifications.push(createPaymentNotification(normalizedPaymentStatus, order._id));
+        updatedFields.push("payment");
+      }
+    }
+
+    if (updatedFields.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: "No order changes were made",
+        order,
+      });
     }
 
     await order.save();
 
-    if (order.riderId && order.riderId !== previousRiderId) {
-      await User.findByIdAndUpdate(order.riderId, {
-        $push: {
-          notifications: {
-            type: "order",
-            title: "New delivery assigned",
-            message: `Order #${String(order._id).slice(-8).toUpperCase()} has been assigned to you.`,
-            read: false,
-            date: new Date(),
-          },
-        },
-      });
+    if (customerNotifications.length > 0) {
+      outboundNotifications.push(
+        ...customerNotifications.map((notification) => ({
+          userId: order.userId,
+          notification,
+          emailTitle: notification.title,
+          emailMessage: notification.message,
+          ctaLabel: "Track order",
+          ctaPath: "/my-orders",
+        }))
+      );
+    }
+
+    if (outboundNotifications.length > 0) {
+      await notifyUsers(outboundNotifications);
     }
 
     return NextResponse.json({
       success: true,
-      message: order.riderId ? "Rider assigned successfully" : "Rider removed successfully",
+      message: updatedFields.length > 1
+        ? "Order updated successfully"
+        : updatedFields[0] === "payment"
+          ? "Payment status updated successfully"
+          : order.riderId
+            ? "Rider assigned successfully"
+            : "Rider removed successfully",
       order,
     });
   } catch (error) {

@@ -1,5 +1,13 @@
 import mongoose from "mongoose";
 
+const trackingEventSchema = new mongoose.Schema({
+    type: { type: String, enum: ['status', 'assignment', 'system'], default: 'status' },
+    status: { type: String, default: '' },
+    title: { type: String, required: true },
+    description: { type: String, default: '' },
+    timestamp: { type: Date, default: Date.now },
+}, { _id: false });
+
 const orderSchema = new mongoose.Schema({
     userId: { type: String, required: true, ref: 'User' },
     sellerId: { type: String, required: true, ref: 'User' },
@@ -32,6 +40,7 @@ const orderSchema = new mongoose.Schema({
     deliveryFee: { type: Number, default: 0 },
     sellerNotes: { type: String },
     customerPhone: { type: String },
+    trackingEvents: { type: [trackingEventSchema], default: [] },
     date: { type: Number, required: true }
 });
 

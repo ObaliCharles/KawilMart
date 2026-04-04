@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import { NotificationsPageSkeleton } from "@/components/PageSkeletons";
 
 const Notifications = () => {
-  const { getToken, user, authReady } = useAppContext();
+  const { getToken, user, authReady, markNotificationAsRead, setUnreadNotificationsCount } = useAppContext();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,6 +21,7 @@ const Notifications = () => {
 
       if (data.success) {
         setNotifications(data.notifications);
+        setUnreadNotificationsCount(data.notifications.filter((notification) => !notification.read).length);
       } else {
         toast.error(data.message);
       }
@@ -33,11 +34,12 @@ const Notifications = () => {
 
   const markAsRead = async (notificationId) => {
     try {
-      const token = await getToken();
-      await axios.post('/api/user/notifications',
-        { notificationId },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const data = await markNotificationAsRead(notificationId);
+
+      if (!data?.success) {
+        toast.error(data?.message || 'Failed to mark as read');
+        return;
+      }
 
       setNotifications(prev => prev.map(n =>
         n._id === notificationId ? { ...n, read: true } : n
@@ -49,7 +51,7 @@ const Notifications = () => {
 
   useEffect(() => {
     if (authReady && user) {
-      fetchNotifications();
+      void fetchNotifications();
     }
   }, [authReady, user]);
 

@@ -5,8 +5,14 @@ import authAdmin from "@/lib/authAdmin";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import Address from "@/models/Address";
-import User from "@/models/User";
 import { getUserRole } from "@/lib/userRoleCache";
+import {
+    createAssignmentNotification,
+    createRiderAssignmentTrackingEvent,
+    createStatusNotification,
+    createStatusTrackingEvent,
+} from "@/lib/orderTracking";
+import { notifyUsers } from "@/lib/notifyUsers";
 
 export async function GET(request) {
     try {
@@ -40,8 +46,20 @@ export async function PUT(request) {
             return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });
         }
 
+        const customerNotifications = [];
+        const outboundNotifications = [];
+        const previousStatus = order.status;
+        const previousRiderId = order.riderId || null;
+
         if (typeof status === "string" && status) {
-            order.status = status;
+            if (status !== previousStatus) {
+                order.status = status;
+                order.trackingEvents = [
+                    ...(order.trackingEvents || []),
+                    createStatusTrackingEvent(status),
+                ];
+                customerNotifications.push(createStatusNotification(status, order._id));
+            }
         }
 
         if (riderId !== undefined) {
@@ -52,23 +70,60 @@ export async function PUT(request) {
                 }
                 order.riderId = riderId;
 
-                await User.findByIdAndUpdate(riderId, {
-                    $push: {
-                        notifications: {
+                if (riderId !== previousRiderId) {
+                    const shortOrderId = String(order._id).slice(-8).toUpperCase();
+                    outboundNotifications.push({
+                        userId: riderId,
+                        notification: {
                             type: "order",
                             title: "New delivery assigned",
-                            message: `Order #${String(order._id).slice(-8).toUpperCase()} has been assigned to you.`,
+                            message: `Order #${shortOrderId} has been assigned to you.`,
                             read: false,
                             date: new Date(),
-                        }
-                    }
-                });
+                        },
+                        emailTitle: `New delivery assigned: #${shortOrderId}`,
+                        emailMessage: `Order #${shortOrderId} has been assigned to you for delivery. Open your rider dashboard to review pickup and drop-off details.`,
+                        ctaLabel: "Open rider dashboard",
+                        ctaPath: "/dashboard/rider",
+                    });
+
+                    order.trackingEvents = [
+                        ...(order.trackingEvents || []),
+                        createRiderAssignmentTrackingEvent({ assigned: true }),
+                    ];
+                    customerNotifications.push(createAssignmentNotification(order._id, true));
+                }
             } else {
                 order.riderId = null;
+
+                if (previousRiderId) {
+                    order.trackingEvents = [
+                        ...(order.trackingEvents || []),
+                        createRiderAssignmentTrackingEvent({ assigned: false }),
+                    ];
+                    customerNotifications.push(createAssignmentNotification(order._id, false));
+                }
             }
         }
 
         await order.save();
+
+        if (customerNotifications.length > 0) {
+            outboundNotifications.push(
+                ...customerNotifications.map((notification) => ({
+                    userId: order.userId,
+                    notification,
+                    emailTitle: notification.title,
+                    emailMessage: notification.message,
+                    ctaLabel: "Track order",
+                    ctaPath: "/my-orders",
+                }))
+            );
+        }
+
+        if (outboundNotifications.length > 0) {
+            await notifyUsers(outboundNotifications);
+        }
 
         return NextResponse.json({ success: true, message: "Order updated", order });
     } catch (error) {

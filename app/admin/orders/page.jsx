@@ -4,12 +4,16 @@ import { useAppContext } from '@/context/AppContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { OrdersManagementPageSkeleton } from '@/components/dashboard/DashboardSkeletons';
+import { ORDER_STATUS_SEQUENCE } from '@/lib/orderTracking';
 
-const statusOptions = ['Order Placed', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'];
+const statusOptions = ORDER_STATUS_SEQUENCE;
 
 const statusColors = {
     'Order Placed': 'bg-blue-100 text-blue-700',
+    'Confirmed': 'bg-sky-100 text-sky-700',
+    'Preparing': 'bg-amber-100 text-amber-700',
     'Processing': 'bg-yellow-100 text-yellow-700',
+    'Ready for Delivery': 'bg-cyan-100 text-cyan-700',
     'Shipped': 'bg-purple-100 text-purple-700',
     'Out for Delivery': 'bg-indigo-100 text-indigo-700',
     'Delivered': 'bg-green-100 text-green-700',

@@ -46,7 +46,14 @@ export async function POST(request) {
             arrayFilters: [{ 'elem._id': notificationId }]
         })
 
-        return NextResponse.json({ success: true, message: "Notification marked as read" })
+        const updatedUser = await User.findById(userId).select('notifications')
+        const unreadCount = (updatedUser?.notifications || []).filter((notification) => !notification.read).length
+
+        return NextResponse.json({
+            success: true,
+            message: "Notification marked as read",
+            unreadCount,
+        })
 
     } catch (error) {
         return NextResponse.json({ success: false, message: error.message })

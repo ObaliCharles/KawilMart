@@ -27,6 +27,7 @@ const AddProduct = () => {
   const [sellerContact, setSellerContact] = useState('');
   const [sellerLocation, setSellerLocation] = useState('');
   const [loadingProduct, setLoadingProduct] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const imagePreviews = useMemo(() => (
     [...Array(4)].map((_, index) => (
@@ -94,6 +95,10 @@ const AddProduct = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (isSubmitting) {
+      return;
+    }
+
     const formData = new FormData();
 
     formData.append('name', name)
@@ -127,7 +132,7 @@ const AddProduct = () => {
     }
 
     try {
-      
+      setIsSubmitting(true);
       const token = await getToken()
       const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
@@ -147,10 +152,9 @@ const AddProduct = () => {
 
     } catch (error) {
       toast.error(error.message)
+    } finally {
+      setIsSubmitting(false);
     }
-
-    
-
   };
 
   return (
@@ -316,14 +320,25 @@ const AddProduct = () => {
           />
         </div>
         <div className="flex items-center gap-3">
-          <button type="submit" className="px-8 py-2.5 bg-orange-600 text-white font-medium rounded">
-            {isEditMode ? 'UPDATE' : 'ADD'}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`px-8 py-2.5 text-white font-medium rounded transition ${
+              isSubmitting ? 'cursor-wait bg-orange-400' : 'bg-orange-600 hover:bg-orange-700'
+            }`}
+          >
+            {isSubmitting ? (isEditMode ? 'Updating...' : 'Adding...') : (isEditMode ? 'UPDATE' : 'ADD')}
           </button>
           {isEditMode && (
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={() => router.push('/seller/product-list')}
-              className="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded"
+              className={`px-6 py-2.5 border font-medium rounded transition ${
+                isSubmitting
+                  ? 'cursor-not-allowed border-gray-200 text-gray-400'
+                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
             >
               Cancel
             </button>

@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useAppContext } from "@/context/AppContext";
 import Image from "next/image";
 import { useClerk, UserButton, useUser, useAuth } from "@clerk/nextjs";
-import axios from 'axios';
 import { NavbarUserSkeleton } from "@/components/dashboard/DashboardSkeletons";
 import { usePathname } from "next/navigation";
 
@@ -16,16 +15,34 @@ const userButtonAppearance = {
   },
 };
 
+const formatBadgeCount = (count) => {
+  if (count > 99) {
+    return "99+";
+  }
+
+  return String(count);
+};
+
 const Navbar = () => {
-  const { isSeller, isAdmin, isRider, navigate, prefetchRoute, resolvedRole, setIsRouteLoading } = useAppContext();
+  const {
+    isSeller,
+    isAdmin,
+    isRider,
+    navigate,
+    prefetchRoute,
+    resolvedRole,
+    setIsRouteLoading,
+    getCartCount,
+    unreadNotificationsCount,
+    refreshUnreadNotifications,
+  } = useAppContext();
   const { user, isLoaded: isUserLoaded } = useUser();
-  const { isLoaded: isAuthLoaded, getToken } = useAuth();
+  const { isLoaded: isAuthLoaded } = useAuth();
   const { openSignIn } = useClerk();
   const pathname = usePathname();
-  const [mobileSearch, setMobileSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [unreadCount, setUnreadCount] = useState(0);
   const clerkReady = isUserLoaded && isAuthLoaded;
+  const cartCount = getCartCount();
 
   // Check both context values and user metadata for roles
   const userRole = resolvedRole || user?.publicMetadata?.role;
@@ -37,7 +54,6 @@ const Navbar = () => {
     if (searchQuery.trim()) {
       navigate(`/all-products?search=${encodeURIComponent(searchQuery)}`);
       setSearchQuery('');
-      setMobileSearch(false);
     }
   };
 
@@ -47,30 +63,14 @@ const Navbar = () => {
     }
 
     if (!user) {
-      setUnreadCount(0);
       return;
     }
 
     let timeoutId;
     let idleId;
 
-    const fetchNotifications = async () => {
-      try {
-        const token = await getToken();
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const { data } = await axios.get('/api/user/notifications', {
-          headers
-        });
-        if (data.success) {
-          setUnreadCount(data.notifications.filter(n => !n.read).length);
-        }
-      } catch (error) {
-        console.error('Failed to fetch notifications:', error);
-      }
-    };
-
     const scheduleFetch = () => {
-      void fetchNotifications();
+      void refreshUnreadNotifications({ silent: true });
     };
 
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
@@ -87,7 +87,7 @@ const Navbar = () => {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [clerkReady, getToken, user]);
+  }, [clerkReady, refreshUnreadNotifications, user]);
 
   useEffect(() => {
     const routes = ['/', '/all-products', '/cart', '/my-orders', '/notifications'];
@@ -104,6 +104,10 @@ const Navbar = () => {
     if (href !== pathname) {
       setIsRouteLoading(true);
     }
+  };
+
+  const openCart = () => {
+    navigate('/cart');
   };
 
   return (
@@ -152,14 +156,28 @@ const Navbar = () => {
             className="outline-none text-sm w-32 bg-transparent"
           />
         </form>
+        <button
+          onClick={openCart}
+          onMouseEnter={() => prefetchRoute('/cart')}
+          onFocus={() => prefetchRoute('/cart')}
+          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white transition hover:border-orange-300 hover:bg-orange-50"
+          aria-label="Open cart"
+        >
+          <CartIcon />
+          {cartCount > 0 && (
+            <span className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-orange-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+              {formatBadgeCount(cartCount)}
+            </span>
+          )}
+        </button>
         {!clerkReady ? (
           <NavbarUserSkeleton showName />
         ) : user
           ? (
-            <div className="relative">
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {unreadCount}
+            <div className="relative inline-flex items-center justify-center pr-1 pt-1">
+              {unreadNotificationsCount > 0 && (
+                <span className="pointer-events-none absolute right-0 top-0 z-20 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                  {formatBadgeCount(unreadNotificationsCount)}
                 </span>
               )}
               <UserButton
@@ -199,21 +217,42 @@ const Navbar = () => {
         {showSeller && (
           <button onClick={() => navigate('/seller')} className="text-xs border px-3 py-1 rounded-full">Seller</button>
         )}
+        <button
+          onClick={openCart}
+          onMouseEnter={() => prefetchRoute('/cart')}
+          onFocus={() => prefetchRoute('/cart')}
+          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white transition hover:border-orange-300 hover:bg-orange-50"
+          aria-label="Open cart"
+        >
+          <CartIcon />
+          {cartCount > 0 && (
+            <span className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-orange-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+              {formatBadgeCount(cartCount)}
+            </span>
+          )}
+        </button>
         {!clerkReady ? (
           <NavbarUserSkeleton />
         ) : user
           ? (
-            <UserButton
-              userProfileMode="modal"
-              appearance={userButtonAppearance}
-            >
-              <UserButton.MenuItems>
-                <UserButton.Action label="Home" labelIcon={<HomeIcon />} onClick={() => navigate('/')} />
-                <UserButton.Action label="Products" labelIcon={<BoxIcon />} onClick={() => navigate('/all-products')} />
-                <UserButton.Action label="Cart" labelIcon={<CartIcon />} onClick={() => navigate('/cart')} />
-                <UserButton.Action label="My Orders" labelIcon={<BagIcon />} onClick={() => navigate('/my-orders')} />
-              </UserButton.MenuItems>
-            </UserButton>
+            <div className="relative inline-flex items-center justify-center pr-1 pt-1">
+              {unreadNotificationsCount > 0 && (
+                <span className="pointer-events-none absolute right-0 top-0 z-20 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                  {formatBadgeCount(unreadNotificationsCount)}
+                </span>
+              )}
+              <UserButton
+                userProfileMode="modal"
+                appearance={userButtonAppearance}
+              >
+                <UserButton.MenuItems>
+                  <UserButton.Action label="Home" labelIcon={<HomeIcon />} onClick={() => navigate('/')} />
+                  <UserButton.Action label="Products" labelIcon={<BoxIcon />} onClick={() => navigate('/all-products')} />
+                  <UserButton.Action label="Cart" labelIcon={<CartIcon />} onClick={() => navigate('/cart')} />
+                  <UserButton.Action label="My Orders" labelIcon={<BagIcon />} onClick={() => navigate('/my-orders')} />
+                </UserButton.MenuItems>
+              </UserButton>
+            </div>
           )
           : (
             <button onClick={openSignIn} className="flex items-center gap-2 hover:text-gray-900 transition text-sm">

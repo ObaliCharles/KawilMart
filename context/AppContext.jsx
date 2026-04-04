@@ -1,6 +1,6 @@
 'use client'
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, startTransition, useContext, useEffect, useState } from "react";
+import { createContext, startTransition, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import axios from "axios";
 import { toast } from 'react-hot-toast';
@@ -36,6 +36,7 @@ export const AppContextProvider = (props) => {
     const [loadingProducts, setLoadingProducts] = useState(true)
     const [loadingUser, setLoadingUser] = useState(false)
     const [isRouteLoading, setIsRouteLoading] = useState(false)
+    const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
 
     const persistProductsCache = (nextProducts) => {
         if (typeof window === 'undefined') {
@@ -157,6 +158,62 @@ export const AppContextProvider = (props) => {
             setLoadingUser(false)
         }
     }
+
+    const refreshUnreadNotifications = useCallback(async ({ silent = true } = {}) => {
+        try {
+            if (!authReady || !user) {
+                setUnreadNotificationsCount(0)
+                return 0
+            }
+
+            const token = await getToken()
+            const headers = token ? { Authorization: `Bearer ${token}` } : {}
+            const { data } = await axios.get('/api/user/notifications', { headers })
+
+            if (data.success) {
+                const unreadCount = (data.notifications || []).filter((notification) => !notification.read).length
+                setUnreadNotificationsCount(unreadCount)
+                return unreadCount
+            }
+
+            if (!silent) {
+                toast.error(data.message)
+            }
+            return 0
+        } catch (error) {
+            if (!silent) {
+                toast.error(error.message)
+            }
+            return 0
+        }
+    }, [authReady, getToken, user])
+
+    const markNotificationAsRead = useCallback(async (notificationId) => {
+        try {
+            if (!authReady || !user) {
+                return { success: false, message: 'Not authenticated' }
+            }
+
+            const token = await getToken()
+            const headers = token ? { Authorization: `Bearer ${token}` } : {}
+            const { data } = await axios.post('/api/user/notifications', { notificationId }, { headers })
+
+            if (data.success) {
+                if (typeof data.unreadCount === 'number') {
+                    setUnreadNotificationsCount(data.unreadCount)
+                } else {
+                    await refreshUnreadNotifications({ silent: true })
+                }
+            }
+
+            return data
+        } catch (error) {
+            return {
+                success: false,
+                message: error.message,
+            }
+        }
+    }, [authReady, getToken, refreshUnreadNotifications, user])
 
     const syncAdminAccess = async () => {
         try {
@@ -354,9 +411,11 @@ export const AppContextProvider = (props) => {
 
         if (user) {
             fetchUserData();
+            refreshUnreadNotifications({ silent: true });
         } else {
             setUserData(false);
             setCartItems({});
+            setUnreadNotificationsCount(0);
             applyRoleAccess(null);
             setAccessLoaded(true);
             setLoadingUser(false);
@@ -388,6 +447,8 @@ export const AppContextProvider = (props) => {
         cartItems, setCartItems,
         addToCart, updateCartQuantity,
         getCartCount, getCartAmount,
+        unreadNotificationsCount, setUnreadNotificationsCount,
+        refreshUnreadNotifications, markNotificationAsRead,
         loadingProducts, loadingUser
     }
 

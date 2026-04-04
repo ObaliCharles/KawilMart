@@ -128,6 +128,30 @@ app/all-products/page.jsx ← Complete rewrite with filters
 middleware.ts             ← Added route protection for admin/rider
 ```
 
+## 📧 Email Notification Setup
+
+The app now supports sending notification emails for:
+- Order placed
+- Seller order received
+- Rider assigned
+- Customer delivery status updates
+- Admin messages
+
+To enable outgoing emails, add these environment variables:
+
+```bash
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=your_resend_api_key
+EMAIL_FROM=KawilMart <notifications@yourdomain.com>
+EMAIL_REPLY_TO=support@yourdomain.com
+APP_BASE_URL=https://yourdomain.com
+```
+
+Notes:
+- `EMAIL_PROVIDER` currently supports `resend`
+- `APP_BASE_URL` is used to generate links inside notification emails
+- If the email keys are missing, in-app notifications still work and email delivery is skipped safely
+
 ---
 
 ## ⚠️ Notes
