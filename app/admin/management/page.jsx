@@ -3,8 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import Loading from '@/components/Loading';
-import Image from 'next/image';
+import ClerkAvatarImage from '@/components/ClerkAvatarImage';
+import { AdminManagementPageSkeleton } from '@/components/dashboard/DashboardSkeletons';
 
 const roleColors = {
     admin: 'bg-red-100 text-red-700',
@@ -14,7 +14,7 @@ const roleColors = {
 };
 
 export default function AdminManagement() {
-    const { getToken, user } = useAppContext();
+    const { getToken, user, authReady } = useAppContext();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedUser, setSelectedUser] = useState(null);
@@ -22,23 +22,28 @@ export default function AdminManagement() {
     const [messageData, setMessageData] = useState({ subject: '', content: '' });
 
     useEffect(() => {
-        if (user) fetchUsers();
-    }, [user]);
-
-    const fetchUsers = async () => {
-        try {
-            const token = await getToken();
-            const { data } = await axios.get('/api/admin/users', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (data.success) setUsers(data.users);
-            else toast.error(data.message);
-        } catch (err) {
-            toast.error(err.message);
-        } finally {
-            setLoading(false);
+        if (!authReady || !user) {
+            return;
         }
-    };
+
+        const fetchUsers = async () => {
+            try {
+                setLoading(true);
+                const token = await getToken();
+                const { data } = await axios.get('/api/admin/users', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (data.success) setUsers(data.users);
+                else toast.error(data.message);
+            } catch (err) {
+                toast.error(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        void fetchUsers();
+    }, [authReady, getToken, user]);
 
     const updateUserDetails = async (userId, updates) => {
         try {
@@ -87,7 +92,7 @@ export default function AdminManagement() {
         await updateUserDetails(userId, { isVerified: !currentStatus });
     };
 
-    if (loading) return <Loading />;
+    if (loading) return <AdminManagementPageSkeleton />;
 
     return (
         <div className="w-full md:p-10 p-4">
@@ -97,12 +102,11 @@ export default function AdminManagement() {
                 {users.map((user) => (
                     <div key={user.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                         <div className="flex items-center space-x-4 mb-4">
-                            <Image
+                            <ClerkAvatarImage
                                 src={user.imageUrl}
                                 alt={user.name}
-                                width={50}
-                                height={50}
-                                className="rounded-full"
+                                className="w-[50px] h-[50px]"
+                                fallback={user.name?.charAt(0) || '?'}
                             />
                             <div>
                                 <h3 className="font-medium">{user.name}</h3>

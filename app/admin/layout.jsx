@@ -1,13 +1,20 @@
 'use client'
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
-import { UserButton, useAuth, useUser } from '@clerk/nextjs';
+import { UserButton, useAuth } from '@clerk/nextjs';
 import Image from 'next/image';
 import { assets } from '@/assets/assets';
-import axios from 'axios';
 import toast from 'react-hot-toast';
+import { DashboardShellSkeleton } from '@/components/dashboard/DashboardSkeletons';
+
+const adminUserButtonAppearance = {
+    elements: {
+        avatarBox: "h-10 w-10 rounded-full ring-2 ring-orange-200 shadow-sm overflow-hidden",
+        userButtonTrigger: "focus:shadow-none",
+    },
+};
 
 const menuItems = [
     { name: 'Dashboard', path: '/admin', icon: '📊' },
@@ -21,31 +28,27 @@ const menuItems = [
 
 const AdminLayout = ({ children }) => {
     const pathname = usePathname();
-    const router = useRouter();
-    const { user: contextUser } = useAppContext();
-    const { sessionClaims, isLoaded: isAuthLoaded, getToken } = useAuth();
-    const { user, isLoaded: isUserLoaded } = useUser();
+    const { user: contextUser, authReady, accessLoaded, isAdmin, loadingUser, resolvedRole, syncAdminAccess } = useAppContext();
+    const { userId } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const isLoaded = isAuthLoaded && isUserLoaded;
-
-    const role = user?.publicMetadata?.role || sessionClaims?.publicMetadata?.role || sessionClaims?.metadata?.role;
-    const hasAdminAccess = role === 'admin';
+    const [autoSyncTried, setAutoSyncTried] = useState(false);
+    const accessReady = authReady && accessLoaded && !loadingUser;
+    const canAutoSyncAccess = process.env.NODE_ENV !== 'production';
 
     useEffect(() => {
-        console.log('Admin Layout Debug:', { isLoaded, sessionClaims, role, userEmail: user?.emailAddresses?.[0]?.emailAddress });
-        if (isLoaded && !hasAdminAccess) {
-            console.log('Redirecting from admin - no access');
-            router.replace('/');
-        } else {
-            console.log('Admin access granted');
+        if (!canAutoSyncAccess || !userId || !accessReady || isAdmin || autoSyncTried) {
+            return;
         }
-    }, [hasAdminAccess, isLoaded, role, router, sessionClaims, user]);
 
-    if (!isLoaded) {
-        return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+        setAutoSyncTried(true);
+        void syncAdminAccess();
+    }, [accessReady, autoSyncTried, canAutoSyncAccess, isAdmin, syncAdminAccess, userId]);
+
+    if (!accessReady) {
+        return <DashboardShellSkeleton />;
     }
 
-    if (!hasAdminAccess) {
+    if (!isAdmin) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
@@ -53,23 +56,17 @@ const AdminLayout = ({ children }) => {
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Admin Access Required</h1>
                     <p className="text-gray-600 mb-6">
                         You need admin privileges to access this area.
-                        {role && <span className="block mt-2 text-sm">Current role: <strong>{role}</strong></span>}
+                        <span className="block mt-2 text-sm">
+                            Current role: <strong>{resolvedRole || 'buyer'}</strong>
+                        </span>
                     </p>
                     <button
                         onClick={async () => {
-                            try {
-                                const token = await getToken();
-                                const { data } = await axios.post('/api/admin/set-admin', {}, {
-                                    headers: { Authorization: `Bearer ${token}` }
-                                });
-                                if (data.success) {
-                                    toast.success(data.message);
-                                    window.location.reload();
-                                } else {
-                                    toast.error(data.message);
-                                }
-                            } catch (err) {
-                                toast.error('Failed to set admin role');
+                            const data = await syncAdminAccess();
+                            if (data.success) {
+                                toast.success(data.message);
+                            } else {
+                                toast.error(data.message || 'Failed to set admin role');
                             }
                         }}
                         className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition font-medium"
@@ -77,7 +74,7 @@ const AdminLayout = ({ children }) => {
                         Set Myself as Admin
                     </button>
                     <p className="text-xs text-gray-500 mt-4">
-                        This will grant you admin access to the system.
+                        If your role was already updated in Clerk, click this once or refresh the page to sync access.
                     </p>
                 </div>
             </div>
@@ -109,7 +106,7 @@ const AdminLayout = ({ children }) => {
                     <span className="hidden md:block text-sm text-gray-600">
                         {contextUser?.firstName} {contextUser?.lastName}
                     </span>
-                    <UserButton />
+                    <UserButton userProfileMode="modal" appearance={adminUserButtonAppearance} />
                 </div>
             </header>
 

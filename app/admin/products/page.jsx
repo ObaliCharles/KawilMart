@@ -6,7 +6,7 @@ import Image from 'next/image';
 import toast from 'react-hot-toast';
 
 export default function AdminProducts() {
-    const { products, fetchProductData, currency, router, getToken } = useAppContext();
+    const { products, fetchProductData, router, getToken, formatCurrency } = useAppContext();
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filterCat, setFilterCat] = useState('All');
@@ -95,9 +95,9 @@ export default function AdminProducts() {
                                 <p className="font-medium text-gray-800 text-sm truncate">{product.name}</p>
                                 <p className="text-xs text-gray-400 mt-0.5">{product.category}</p>
                                 <div className="flex items-baseline gap-2 mt-1">
-                                    <p className="text-orange-600 font-bold text-sm">{currency}{product.offerPrice.toLocaleString()}</p>
+                                    <p className="text-orange-600 font-bold text-sm">{formatCurrency(product.offerPrice)}</p>
                                     {product.price > product.offerPrice && (
-                                        <p className="text-xs text-gray-400 line-through">{currency}{product.price.toLocaleString()}</p>
+                                        <p className="text-xs text-gray-400 line-through">{formatCurrency(product.price)}</p>
                                     )}
                                 </div>
                                 <button

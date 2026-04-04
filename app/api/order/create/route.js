@@ -1,4 +1,5 @@
 import connectDB from "@/config/db";
+import Address from "@/models/Address";
 import Product from "@/models/Product";
 import Order from "@/models/Order";
 import User from "@/models/User";
@@ -18,35 +19,66 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: "Cart is empty" });
     }
 
-    let totalAmount = 0;
-    const orderItems = [];
-
-    for (const item of items) {
-      const product = await Product.findById(item.product);
-      if (!product) continue;
-      const price = product.offerPrice || product.price || 0;
-      totalAmount += price * item.quantity;
-      orderItems.push({
-        product: product._id.toString(),
-        quantity: item.quantity,
-      });
+    const addressDoc = await Address.findById(address);
+    if (!addressDoc) {
+      return NextResponse.json({ success: false, message: "Selected address not found" });
     }
 
-    if (orderItems.length === 0) return NextResponse.json({ success: false, message: "No valid products found" });
-    if (totalAmount <= 0) return NextResponse.json({ success: false, message: "Invalid total amount" });
+    const sellerOrders = new Map();
 
-    const finalAmount = Math.floor(totalAmount + totalAmount * 0.02);
+    for (const item of items) {
+      const quantity = Number(item.quantity);
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        continue;
+      }
 
-    // Create order in MongoDB
-    const order = await Order.create({
-      userId,
-      items: orderItems,
-      amount: finalAmount,
-      address,
-      date: Date.now(),
-    });
+      const product = await Product.findById(item.product);
+      if (!product) continue;
 
-    console.log("Order created in MongoDB:", order);
+      const sellerId = product.userId;
+      const price = product.offerPrice || product.price || 0;
+
+      if (!sellerId || price <= 0) {
+        continue;
+      }
+
+      const sellerBucket = sellerOrders.get(sellerId) || {
+        sellerId,
+        amount: 0,
+        items: [],
+      };
+
+      sellerBucket.amount += price * quantity;
+      sellerBucket.items.push({
+        product: product._id.toString(),
+        quantity,
+        price,
+      });
+
+      sellerOrders.set(sellerId, sellerBucket);
+    }
+
+    const orderPayloads = Array.from(sellerOrders.values())
+      .filter(({ items: groupedItems, amount, sellerId }) =>
+        sellerId && groupedItems.length > 0 && amount > 0
+      )
+      .map(({ sellerId, items: groupedItems, amount }) => ({
+        userId,
+        sellerId,
+        items: groupedItems,
+        amount: Math.floor(amount + amount * 0.02),
+        address,
+        customerPhone: addressDoc.phoneNumber || "",
+        date: Date.now(),
+      }));
+
+    if (orderPayloads.length === 0) {
+      return NextResponse.json({ success: false, message: "No valid products found" });
+    }
+
+    const createdOrders = await Order.create(orderPayloads);
+
+    console.log("Orders created in MongoDB:", createdOrders);
 
     // Clear user cart
     const user = await User.findById(userId);
@@ -56,18 +88,28 @@ export async function POST(request) {
     }
 
     // Send event to Inngest for logging
-    await inngest.send({
-      name: "order/created",
-      data: {
-        userId,
-        items: orderItems,
-        address,
-        amount: finalAmount,
-        date: order.date,
-      },
-    });
+    await Promise.all(
+      createdOrders.map((order) =>
+        inngest.send({
+          name: "order/created",
+          data: {
+            orderId: order._id.toString(),
+            userId,
+            sellerId: order.sellerId,
+            items: order.items,
+            address,
+            amount: order.amount,
+            date: order.date,
+          },
+        })
+      )
+    );
 
-    return NextResponse.json({ success: true, message: "Order placed successfully" });
+    return NextResponse.json({
+      success: true,
+      message: createdOrders.length > 1 ? "Orders placed successfully" : "Order placed successfully",
+      orderCount: createdOrders.length,
+    });
   } catch (error) {
     console.error("Order API error:", error);
     return NextResponse.json({ success: false, message: error.message });

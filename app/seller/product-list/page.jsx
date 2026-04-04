@@ -9,11 +9,12 @@ import toast from "react-hot-toast";
 import axios from 'axios';
 
 const ProductList = () => {
-  const { router, getToken, user } = useAppContext();
+  const { router, getToken, user, authReady, formatCurrency } = useAppContext();
 
-  const [products, setProducts] = useState([]); // Ensure it's an array
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [toastShown, setToastShown] = useState(false); //  state flag to show toast once
+  const [toastShown, setToastShown] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const fetchSellerProduct = async () => {
     try {
@@ -43,11 +44,36 @@ const ProductList = () => {
   };
 
   useEffect(() => {
-    if (user) {
+    if (authReady && user) {
       fetchSellerProduct();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]); //  dependency on user only
+  }, [authReady, user]);
+
+  const handleDeleteProduct = async (productId) => {
+    const shouldDelete = window.confirm("Delete this product? This action cannot be undone.");
+    if (!shouldDelete) {
+      return;
+    }
+
+    try {
+      setDeletingId(productId);
+      const token = await getToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const { data } = await axios.post('/api/product/delete', { productId }, { headers });
+
+      if (data.success) {
+        setProducts((prevProducts) => prevProducts.filter((product) => product._id !== productId));
+        toast.success(data.message);
+      } else {
+        toast.error(data.message || "Failed to delete product");
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error.message || "Failed to delete product");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="flex-1 min-h-screen flex flex-col justify-between">
@@ -62,7 +88,7 @@ const ProductList = () => {
                     <th className="w-2/3 md:w-2/5 px-4 py-3 font-medium truncate">Product</th>
                     <th className="px-4 py-3 font-medium truncate max-sm:hidden">Category</th>
                     <th className="px-4 py-3 font-medium truncate">Price</th>
-                    <th className="px-4 py-3 font-medium truncate max-sm:hidden">Action</th>
+                    <th className="px-4 py-3 font-medium truncate">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm text-gray-500">
@@ -84,19 +110,34 @@ const ProductList = () => {
                           <span className="truncate w-full">{product.name}</span>
                         </td>
                         <td className="px-4 py-3 max-sm:hidden">{product.category}</td>
-                        <td className="px-4 py-3">${product.offerPrice}</td>
-                        <td className="px-4 py-3 max-sm:hidden">
-                          <button
-                            onClick={() => router.push(`/product/${product._id}`)}
-                            className="flex items-center gap-1 px-1.5 md:px-3.5 py-2 bg-orange-600 text-white rounded-md"
-                          >
-                            <span className="hidden md:block">Visit</span>
-                            <Image
-                              className="h-3.5"
-                              src={assets.redirect_icon}
-                              alt="redirect_icon"
-                            />
-                          </button>
+                        <td className="px-4 py-3">{formatCurrency(product.offerPrice)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => router.push(`/product/${product._id}`)}
+                              className="flex items-center gap-1 px-3 py-2 bg-orange-600 text-white rounded-md"
+                            >
+                              <span>Visit</span>
+                              <Image
+                                className="h-3.5"
+                                src={assets.redirect_icon}
+                                alt="redirect_icon"
+                              />
+                            </button>
+                            <button
+                              onClick={() => router.push(`/seller?edit=${product._id}`)}
+                              className="px-3 py-2 border border-blue-200 text-blue-700 rounded-md hover:bg-blue-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProduct(product._id)}
+                              disabled={deletingId === product._id}
+                              className="px-3 py-2 border border-red-200 text-red-700 rounded-md hover:bg-red-50 disabled:opacity-60"
+                            >
+                              {deletingId === product._id ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))

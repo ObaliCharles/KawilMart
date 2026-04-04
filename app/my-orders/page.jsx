@@ -10,7 +10,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 
 const MyOrders = () => {
-    const { currency, getToken, user } = useAppContext();
+    const { getToken, user, authReady, formatCurrency } = useAppContext();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -33,8 +33,8 @@ const MyOrders = () => {
     }
 
     useEffect(() => {
-        if (user) fetchOrders();
-    }, [user]); 
+        if (authReady && user) fetchOrders();
+    }, [authReady, user]); 
 
     return (
         <>
@@ -54,7 +54,7 @@ const MyOrders = () => {
                                         />
                                         <p className="flex flex-col gap-3">
                                             <span className="font-medium text-base">
-                                                {order.items.map(item => `${item.product.name} x ${item.quantity}`).join(", ")}
+                                                {order.items.map(item => `${item.product?.name || 'Deleted Product'} x ${item.quantity}`).join(", ")}
                                             </span>
                                             <span>
                                                 Items : {order.items.reduce((sum, item) => sum + item.quantity, 0)}
@@ -69,7 +69,7 @@ const MyOrders = () => {
                                             <span>{order.address.phoneNumber}</span>
                                         </p>
                                     </div>
-                                    <p className="font-medium my-auto">{currency}{order.amount}</p>
+                                    <p className="font-medium my-auto">{formatCurrency(order.amount)}</p>
                                     <div>
                                         <p className="flex flex-col">
                                             <span>Method : COD</span>

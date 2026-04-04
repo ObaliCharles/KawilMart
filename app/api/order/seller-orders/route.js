@@ -17,8 +17,7 @@ export async function GET(request) {
 
     await connectDB();
 
-    // Fetch all orders and populate product and address info
-    const orders = await Order.find({})
+    const orders = await Order.find({ sellerId: userId })
       .populate({
         path: "items.product",
         model: Product

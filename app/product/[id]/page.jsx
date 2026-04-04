@@ -9,15 +9,17 @@ import { useParams } from "next/navigation";
 import Loading from "@/components/Loading";
 import { useAppContext } from "@/context/AppContext";
 import React from "react";
+import ProductRating from "@/components/ProductRating";
 
 const Product = () => {
 
     const { id } = useParams();
 
-    const { products, router, addToCart } = useAppContext()
+    const { products, router, addToCart, formatCurrency, toggleProductLike } = useAppContext()
 
     const [mainImage, setMainImage] = useState(null);
     const [productData, setProductData] = useState(null);
+    const [liking, setLiking] = useState(false);
 
     const fetchProductData = async () => {
         const product = products.find(product => product._id === id);
@@ -26,7 +28,17 @@ const Product = () => {
 
     useEffect(() => {
         fetchProductData();
-    }, [id, products.length])
+    }, [id, products])
+
+    const handleLikeClick = async () => {
+        if (!productData || liking) {
+            return;
+        }
+
+        setLiking(true);
+        await toggleProductLike(productData._id);
+        setLiking(false);
+    };
 
     return productData ? (<>
         <Navbar />
@@ -64,30 +76,29 @@ const Product = () => {
                 </div>
 
                 <div className="flex flex-col">
-                    <h1 className="text-3xl font-medium text-gray-800/90 mb-4">
-                        {productData.name}
-                    </h1>
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-0.5">
-                            <Image className="h-4 w-4" src={assets.star_icon} alt="star_icon" />
-                            <Image className="h-4 w-4" src={assets.star_icon} alt="star_icon" />
-                            <Image className="h-4 w-4" src={assets.star_icon} alt="star_icon" />
-                            <Image className="h-4 w-4" src={assets.star_icon} alt="star_icon" />
-                            <Image
-                                className="h-4 w-4"
-                                src={assets.star_dull_icon}
-                                alt="star_dull_icon"
-                            />
-                        </div>
-                        <p>(4.5)</p>
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                        <h1 className="text-3xl font-medium text-gray-800/90">
+                            {productData.name}
+                        </h1>
+                        <button
+                            onClick={handleLikeClick}
+                            className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                                productData.likedByCurrentUser
+                                    ? "border-orange-200 bg-orange-50 text-orange-700"
+                                    : "border-gray-200 bg-white text-gray-600 hover:border-orange-200 hover:text-orange-600"
+                            } ${liking ? "opacity-60" : ""}`}
+                        >
+                            {productData.likedByCurrentUser ? "Liked" : "Like"} · {productData.likesCount || 0}
+                        </button>
                     </div>
+                    <ProductRating product={productData} size="lg" />
                     <p className="text-gray-600 mt-3">
                         {productData.description}
                     </p>
                     <p className="text-3xl font-medium mt-6">
-                        UGX {productData.offerPrice.toLocaleString()}
+                        {formatCurrency(productData.offerPrice)}
                         <span className="text-base font-normal text-gray-800/60 line-through ml-2">
-                            UGX {productData.price.toLocaleString()}
+                            {formatCurrency(productData.price)}
                         </span>
                     </p>
                     <hr className="bg-gray-600 my-6" />

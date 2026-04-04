@@ -1,8 +1,12 @@
+'use client'
+
 import React from "react";
 import { assets } from "@/assets/assets";
 import Image from "next/image";
 
 const Footer = () => {
+  const currentYear = new Date().getFullYear();
+
   return (
     <footer>
       <div className="flex flex-col md:flex-row items-start justify-center px-6 md:px-16 lg:px-32 gap-10 py-14 border-b border-gray-500/30 text-gray-500">
@@ -47,7 +51,7 @@ const Footer = () => {
         </div>
       </div>
       <p className="py-4 text-center text-xs md:text-sm">
-        Copyright 2025 © danceCodes.dev All Right Reserved.
+        Copyright {currentYear} © danceCodes.dev All Right Reserved.
       </p>
     </footer>
   );

@@ -6,13 +6,13 @@ import toast from 'react-hot-toast';
 import Loading from '@/components/Loading';
 
 export default function AdminAnalytics() {
-    const { getToken, user, currency } = useAppContext();
+    const { getToken, user, authReady, formatCurrency, formatCompactCurrency } = useAppContext();
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (user) fetchStats();
-    }, [user]);
+        if (authReady && user) fetchStats();
+    }, [authReady, user]);
 
     const fetchStats = async () => {
         try {
@@ -45,7 +45,7 @@ export default function AdminAnalytics() {
             {/* KPI row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                    { label: 'Avg Order Value', value: `${currency}${stats.totalOrders ? Math.round(stats.totalRevenue / stats.totalOrders).toLocaleString() : 0}`, icon: '💡' },
+                    { label: 'Avg Order Value', value: formatCurrency(stats.totalOrders ? stats.totalRevenue / stats.totalOrders : 0), icon: '💡' },
                     { label: 'Delivery Rate', value: `${stats.totalOrders ? Math.round(((stats.statusCounts['Delivered'] || 0) / stats.totalOrders) * 100) : 0}%`, icon: '✅' },
                     { label: 'Cancellation Rate', value: `${stats.totalOrders ? Math.round(((stats.statusCounts['Cancelled'] || 0) / stats.totalOrders) * 100) : 0}%`, icon: '❌' },
                     { label: 'Products/User Ratio', value: (stats.totalUsers ? (stats.totalProducts / stats.totalUsers).toFixed(1) : 0), icon: '📐' },
@@ -62,12 +62,12 @@ export default function AdminAnalytics() {
                 {/* Daily Revenue Bar Chart */}
                 <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                     <h2 className="font-semibold text-gray-900 mb-2">Daily Revenue (Last 7 Days)</h2>
-                    <p className="text-sm text-gray-400 mb-6">Total: {currency}{stats.totalRevenue.toLocaleString()}</p>
+                    <p className="text-sm text-gray-400 mb-6">Total: {formatCurrency(stats.totalRevenue)}</p>
                     <div className="flex items-end gap-2 h-48">
                         {stats.revenueByDay.map((day, i) => (
                             <div key={i} className="flex-1 flex flex-col items-center gap-1">
                                 <span className="text-xs text-gray-500">
-                                    {day.revenue > 0 ? `${currency}${day.revenue > 999 ? `${(day.revenue/1000).toFixed(0)}k` : day.revenue}` : ''}
+                                    {day.revenue > 0 ? formatCompactCurrency(day.revenue) : ''}
                                 </span>
                                 <div className="w-full bg-gray-100 rounded-lg" style={{ height: '130px' }}>
                                     <div
@@ -134,7 +134,7 @@ export default function AdminAnalytics() {
                     <h2 className="font-semibold text-gray-900 mb-4">Platform Summary</h2>
                     <div className="grid grid-cols-2 gap-4">
                         {[
-                            { label: 'Total Revenue', value: `${currency}${stats.totalRevenue.toLocaleString()}`, icon: '💰', bg: 'bg-green-50' },
+                            { label: 'Total Revenue', value: formatCurrency(stats.totalRevenue), icon: '💰', bg: 'bg-green-50' },
                             { label: 'Total Orders', value: stats.totalOrders, icon: '📦', bg: 'bg-blue-50' },
                             { label: 'Total Products', value: stats.totalProducts, icon: '🛍️', bg: 'bg-purple-50' },
                             { label: 'Total Users', value: stats.totalUsers, icon: '👥', bg: 'bg-orange-50' },

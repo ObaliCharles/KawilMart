@@ -1,13 +1,18 @@
+'use client'
+
 import { useAppContext } from "@/context/AppContext";
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 const OrderSummary = () => {
-  const { currency, router, getCartCount, getCartAmount, getToken, user, cartItems, setCartItems } = useAppContext();
+  const { router, getCartCount, getCartAmount, getToken, user, cartItems, setCartItems, authReady, formatCurrency } = useAppContext();
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [userAddresses, setUserAddresses] = useState([]);
+  const cartAmount = getCartAmount();
+  const taxAmount = Math.floor(cartAmount * 0.02);
+  const totalAmount = cartAmount + taxAmount;
 
   const fetchUserAddresses = async () => {
     try {
@@ -66,8 +71,8 @@ const OrderSummary = () => {
   };
 
   useEffect(() => {
-    if (user) fetchUserAddresses();
-  }, [user]);
+    if (authReady && user) fetchUserAddresses();
+  }, [authReady, user]);
 
   return (
     <div className="w-full md:w-96 bg-gray-500/5 p-5">
@@ -137,7 +142,7 @@ const OrderSummary = () => {
         <div className="space-y-4">
           <div className="flex justify-between text-base font-medium">
             <p className="uppercase text-gray-600">Items {getCartCount()}</p>
-            <p className="text-gray-800">{currency}{getCartAmount()}</p>
+            <p className="text-gray-800">{formatCurrency(cartAmount)}</p>
           </div>
           <div className="flex justify-between">
             <p className="text-gray-600">Shipping Fee</p>
@@ -145,11 +150,11 @@ const OrderSummary = () => {
           </div>
           <div className="flex justify-between">
             <p className="text-gray-600">Tax (2%)</p>
-            <p className="font-medium text-gray-800">{currency}{Math.floor(getCartAmount() * 0.02)}</p>
+            <p className="font-medium text-gray-800">{formatCurrency(taxAmount)}</p>
           </div>
           <div className="flex justify-between text-lg md:text-xl font-medium border-t pt-3">
             <p>Total</p>
-            <p>{currency}{getCartAmount() + Math.floor(getCartAmount() * 0.02)}</p>
+            <p>{formatCurrency(totalAmount)}</p>
           </div>
         </div>
       </div>

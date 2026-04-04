@@ -1,8 +1,9 @@
 'use client'
-import React from 'react'
+import React, { startTransition, useState } from 'react'
 import { assets } from '@/assets/assets'
 import Image from 'next/image';
 import { useAppContext } from '@/context/AppContext';
+import ProductRating from './ProductRating';
 
 // Simulate shop locations (in real system this comes from seller's profile)
 const shopLocations = [
@@ -16,7 +17,9 @@ const getShopLocation = (productId) => {
 };
 
 const ProductCard = ({ product }) => {
-    const { currency, router, addToCart } = useAppContext();
+    const { router, addToCart, formatCurrency, toggleProductLike } = useAppContext();
+    const productHref = `/product/${product._id}`;
+    const [liking, setLiking] = useState(false);
 
     const discountPercent = product.price && product.price > product.offerPrice
       ? Math.round(((product.price - product.offerPrice) / product.price) * 100)
@@ -24,9 +27,28 @@ const ProductCard = ({ product }) => {
 
     const location = product.location || getShopLocation(product._id);
 
+    const handleLikeClick = async (e) => {
+        e.stopPropagation();
+
+        if (liking) {
+            return;
+        }
+
+        setLiking(true);
+        await toggleProductLike(product._id);
+        setLiking(false);
+    };
+
     return (
         <div
-            onClick={() => { router.push('/product/' + product._id); scrollTo(0, 0) }}
+            onClick={() => {
+                startTransition(() => {
+                    router.push(productHref);
+                });
+                scrollTo(0, 0);
+            }}
+            onMouseEnter={() => router.prefetch(productHref)}
+            onFocus={() => router.prefetch(productHref)}
             className="flex flex-col items-start gap-0.5 max-w-[220px] w-full cursor-pointer"
         >
             <div className="cursor-pointer group relative bg-gray-500/10 rounded-lg w-full h-52 flex items-center justify-center overflow-hidden">
@@ -48,8 +70,13 @@ const ProductCard = ({ product }) => {
                   </span>
                 )}
                 <button
-                  onClick={(e) => { e.stopPropagation(); }}
-                  className="absolute top-2 right-2 bg-white p-2 rounded-full shadow-md hover:bg-red-50 transition"
+                  onClick={handleLikeClick}
+                  className={`absolute top-2 right-2 p-2 rounded-full shadow-md transition ${
+                    product.likedByCurrentUser
+                      ? "bg-orange-100 ring-1 ring-orange-200"
+                      : "bg-white hover:bg-red-50"
+                  } ${liking ? "opacity-60" : ""}`}
+                  aria-label={product.likedByCurrentUser ? "Unlike product" : "Like product"}
                 >
                     <Image
                         className="h-3 w-3"
@@ -68,25 +95,13 @@ const ProductCard = ({ product }) => {
               <span>{location}</span>
             </div>
 
-            <div className="flex items-center gap-2 mt-0.5">
-                <p className="text-xs">{4.5}</p>
-                <div className="flex items-center gap-0.5">
-                    {Array.from({ length: 5 }).map((_, index) => (
-                        <Image
-                            key={index}
-                            className="h-3 w-3"
-                            src={index < Math.floor(4) ? assets.star_icon : assets.star_dull_icon}
-                            alt="star_icon"
-                        />
-                    ))}
-                </div>
-            </div>
+            <ProductRating product={product} />
 
             <div className="flex items-end justify-between w-full mt-1">
                 <div>
-                  <p className="text-base font-medium text-orange-600">{currency}{product.offerPrice.toLocaleString()}</p>
+                  <p className="text-base font-medium text-orange-600">{formatCurrency(product.offerPrice)}</p>
                   {product.price > product.offerPrice && (
-                    <p className="text-xs text-gray-400 line-through">{currency}{product.price.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400 line-through">{formatCurrency(product.price)}</p>
                   )}
                 </div>
                 <button

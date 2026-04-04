@@ -7,7 +7,7 @@ import Loading from '@/components/Loading';
 import Image from 'next/image';
 
 export default function AdminPromotions() {
-    const { getToken, user } = useAppContext();
+    const { getToken, user, authReady, formatCurrency } = useAppContext();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -18,8 +18,8 @@ export default function AdminPromotions() {
     });
 
     useEffect(() => {
-        if (user) fetchProducts();
-    }, [user]);
+        if (authReady && user) fetchProducts();
+    }, [authReady, user]);
 
     const fetchProducts = async () => {
         try {
@@ -102,7 +102,7 @@ export default function AdminPromotions() {
                             />
                             <div className="flex-1">
                                 <h3 className="font-medium text-sm">{product.name}</h3>
-                                <p className="text-xs text-gray-500">UGX {product.offerPrice.toLocaleString()}</p>
+                                <p className="text-xs text-gray-500">{formatCurrency(product.offerPrice)}</p>
                                 <div className="flex flex-wrap gap-1 mt-1">
                                     {product.isFlashDeal && (
                                         <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded">

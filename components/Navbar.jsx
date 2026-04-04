@@ -1,67 +1,118 @@
 "use client"
-import React, { useState } from "react";
+import React, { startTransition, useEffect, useState } from "react";
 import { assets, BagIcon, BoxIcon, CartIcon, HomeIcon } from "@/assets/assets";
 import Link from "next/link"
 import { useAppContext } from "@/context/AppContext";
 import Image from "next/image";
 import { useClerk, UserButton, useUser, useAuth } from "@clerk/nextjs";
 import axios from 'axios';
-import { useEffect } from 'react';
+import { NavbarUserSkeleton } from "@/components/dashboard/DashboardSkeletons";
+
+const userButtonAppearance = {
+  elements: {
+    avatarBox: "h-10 w-10 rounded-full ring-2 ring-orange-200 shadow-sm overflow-hidden",
+    userButtonTrigger: "focus:shadow-none",
+  },
+};
 
 const Navbar = () => {
-  const { isSeller, isAdmin, isRider, router } = useAppContext();
-  const { user } = useUser();
-  const { isLoaded, getToken } = useAuth();
+  const { isSeller, isAdmin, isRider, resolvedRole, router } = useAppContext();
+  const { user, isLoaded: isUserLoaded } = useUser();
+  const { isLoaded: isAuthLoaded, getToken } = useAuth();
   const { openSignIn } = useClerk();
   const [mobileSearch, setMobileSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const clerkReady = isUserLoaded && isAuthLoaded;
 
   // Check both context values and user metadata for roles
-  const userRole = user?.publicMetadata?.role;
+  const userRole = resolvedRole || user?.publicMetadata?.role;
   const showAdmin = isAdmin || userRole === 'admin';
   const showRider = isRider || userRole === 'rider';
   const showSeller = isSeller || userRole === 'seller' || userRole === 'admin';
+  const navigate = (href) => {
+    startTransition(() => {
+      router.push(href);
+    });
+  };
 
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      router.push(`/all-products?search=${encodeURIComponent(searchQuery)}`);
+      navigate(`/all-products?search=${encodeURIComponent(searchQuery)}`);
       setSearchQuery('');
       setMobileSearch(false);
     }
   };
 
-  const fetchNotifications = async () => {
-    if (user) {
+  useEffect(() => {
+    if (!clerkReady) {
+      return;
+    }
+
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+
+    let timeoutId;
+    let idleId;
+
+    const fetchNotifications = async () => {
       try {
         const token = await getToken();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const { data } = await axios.get('/api/user/notifications', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers
         });
         if (data.success) {
-          setNotifications(data.notifications);
           setUnreadCount(data.notifications.filter(n => !n.read).length);
         }
       } catch (error) {
         console.error('Failed to fetch notifications:', error);
       }
+    };
+
+    const scheduleFetch = () => {
+      void fetchNotifications();
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(scheduleFetch, { timeout: 1200 });
+    } else {
+      timeoutId = window.setTimeout(scheduleFetch, 400);
     }
-  };
+
+    return () => {
+      if (idleId && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [clerkReady, getToken, user]);
 
   useEffect(() => {
-    fetchNotifications();
-  }, [user]);
+    const routes = ['/', '/all-products', '/cart', '/my-orders', '/notifications'];
+    if (showSeller) routes.push('/seller');
+    if (showAdmin) routes.push('/admin');
+    if (showRider) routes.push('/dashboard/rider');
+
+    routes.forEach((route) => {
+      router.prefetch(route);
+    });
+  }, [router, showAdmin, showRider, showSeller]);
 
   return (
     <nav className="flex items-center justify-between px-6 md:px-16 lg:px-32 py-3 border-b border-gray-300 text-gray-700 bg-white sticky top-0 z-30">
-      <Image
-        className="cursor-pointer w-28 md:w-32"
-        onClick={() => router.push('/')}
-        src={assets.logo}
-        alt="logo"
-      />
+      <Link href="/" prefetch className="block">
+        <Image
+          className="cursor-pointer w-28 md:w-32"
+          src={assets.logo}
+          alt="logo"
+        />
+      </Link>
 
       {/* Desktop Nav Links */}
       <div className="flex items-center gap-4 lg:gap-8 max-md:hidden">
@@ -70,17 +121,17 @@ const Navbar = () => {
         <Link href="/all-products?filter=flash" className="hover:text-orange-600 transition text-sm text-orange-500 font-medium">⚡ Deals</Link>
         <Link href="/" className="hover:text-gray-900 transition text-sm">About Us</Link>
         {(showSeller) && (
-          <button onClick={() => router.push('/seller')} className="text-xs border px-4 py-1.5 rounded-full hover:bg-gray-50 transition">
+          <button onClick={() => navigate('/seller')} className="text-xs border px-4 py-1.5 rounded-full hover:bg-gray-50 transition">
             🏪 Seller
           </button>
         )}
         {showAdmin && (
-          <button onClick={() => { console.log('Admin button clicked'); router.push('/admin'); }} className="text-xs border border-orange-400 text-orange-600 px-4 py-1.5 rounded-full hover:bg-orange-50 transition">
+          <button onClick={() => navigate('/admin')} className="text-xs border border-orange-400 text-orange-600 px-4 py-1.5 rounded-full hover:bg-orange-50 transition">
             🛡️ Admin
           </button>
         )}
         {showRider && (
-          <button onClick={() => { console.log('Rider button clicked'); router.push('/dashboard/rider'); }} className="text-xs border border-purple-400 text-purple-600 px-4 py-1.5 rounded-full hover:bg-purple-50 transition">
+          <button onClick={() => navigate('/dashboard/rider')} className="text-xs border border-purple-400 text-purple-600 px-4 py-1.5 rounded-full hover:bg-purple-50 transition">
             🛵 Deliveries
           </button>
         )}
@@ -99,7 +150,9 @@ const Navbar = () => {
             className="outline-none text-sm w-32 bg-transparent"
           />
         </form>
-        {isLoaded && user
+        {!clerkReady ? (
+          <NavbarUserSkeleton showName />
+        ) : user
           ? (
             <div className="relative">
               {unreadCount > 0 && (
@@ -107,20 +160,20 @@ const Navbar = () => {
                   {unreadCount}
                 </span>
               )}
-              <UserButton>
+              <UserButton
+                showName
+                userProfileMode="modal"
+                appearance={userButtonAppearance}
+              >
                 <UserButton.MenuItems>
-                  <UserButton.Action label="Cart" labelIcon={<CartIcon />} onClick={() => router.push('/cart')} />
-                </UserButton.MenuItems>
-                <UserButton.MenuItems>
-                  <UserButton.Action label="My Orders" labelIcon={<BagIcon />} onClick={() => router.push('/my-orders')} />
-                </UserButton.MenuItems>
-                <UserButton.MenuItems>
-                  <UserButton.Action label="Notifications" labelIcon="🔔" onClick={() => router.push('/notifications')} />
+                  <UserButton.Action label="Cart" labelIcon={<CartIcon />} onClick={() => navigate('/cart')} />
+                  <UserButton.Action label="My Orders" labelIcon={<BagIcon />} onClick={() => navigate('/my-orders')} />
+                  <UserButton.Action label="Notifications" labelIcon="🔔" onClick={() => navigate('/notifications')} />
                 </UserButton.MenuItems>
               </UserButton>
             </div>
           )
-          : isLoaded && (
+          : (
             <button onClick={openSignIn} className="flex items-center gap-2 hover:text-gray-900 transition text-sm">
               <Image src={assets.user_icon} alt="user icon" />
               Account
@@ -132,36 +185,35 @@ const Navbar = () => {
       {/* Mobile Right */}
       <div className="flex items-center md:hidden gap-3">
         {showAdmin && (
-          <button onClick={() => router.push('/admin')} className="text-xs border border-orange-400 text-orange-600 px-3 py-1 rounded-full">
+          <button onClick={() => navigate('/admin')} className="text-xs border border-orange-400 text-orange-600 px-3 py-1 rounded-full">
             Admin
           </button>
         )}
         {showRider && (
-          <button onClick={() => router.push('/dashboard/rider')} className="text-xs border border-purple-400 text-purple-600 px-3 py-1 rounded-full">
+          <button onClick={() => navigate('/dashboard/rider')} className="text-xs border border-purple-400 text-purple-600 px-3 py-1 rounded-full">
             Rider
           </button>
         )}
         {showSeller && (
-          <button onClick={() => router.push('/seller')} className="text-xs border px-3 py-1 rounded-full">Seller</button>
+          <button onClick={() => navigate('/seller')} className="text-xs border px-3 py-1 rounded-full">Seller</button>
         )}
-        {isLoaded && user
+        {!clerkReady ? (
+          <NavbarUserSkeleton />
+        ) : user
           ? (
-            <UserButton>
+            <UserButton
+              userProfileMode="modal"
+              appearance={userButtonAppearance}
+            >
               <UserButton.MenuItems>
-                <UserButton.Action label="Home" labelIcon={<HomeIcon />} onClick={() => router.push('/')} />
-              </UserButton.MenuItems>
-              <UserButton.MenuItems>
-                <UserButton.Action label="Products" labelIcon={<BoxIcon />} onClick={() => router.push('/all-products')} />
-              </UserButton.MenuItems>
-              <UserButton.MenuItems>
-                <UserButton.Action label="Cart" labelIcon={<CartIcon />} onClick={() => router.push('/cart')} />
-              </UserButton.MenuItems>
-              <UserButton.MenuItems>
-                <UserButton.Action label="My Orders" labelIcon={<BagIcon />} onClick={() => router.push('/my-orders')} />
+                <UserButton.Action label="Home" labelIcon={<HomeIcon />} onClick={() => navigate('/')} />
+                <UserButton.Action label="Products" labelIcon={<BoxIcon />} onClick={() => navigate('/all-products')} />
+                <UserButton.Action label="Cart" labelIcon={<CartIcon />} onClick={() => navigate('/cart')} />
+                <UserButton.Action label="My Orders" labelIcon={<BagIcon />} onClick={() => navigate('/my-orders')} />
               </UserButton.MenuItems>
             </UserButton>
           )
-          : isLoaded && (
+          : (
             <button onClick={openSignIn} className="flex items-center gap-2 hover:text-gray-900 transition text-sm">
               <Image src={assets.user_icon} alt="user icon" />
               Account

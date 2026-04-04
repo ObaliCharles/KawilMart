@@ -14,6 +14,8 @@ const productSchema = new mongoose.Schema({
     isFlashDeal: { type: Boolean, default: false },
     flashDealEndDate: { type: Date },
     promotionType: { type: String, enum: ['none', 'flash_deal', 'featured', 'discount'], default: 'none' },
+    likedBy: { type: [String], default: [] },
+    likesCount: { type: Number, default: 0 },
     reviews: [{
         userId: { type: String, required: true },
         userName: { type: String, required: true },

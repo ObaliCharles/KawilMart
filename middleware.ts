@@ -4,56 +4,65 @@ import authAdmin from '@/lib/authAdmin';
 import authRider from '@/lib/authRider';
 import authSeller from '@/lib/authSeller';
 
-const isAdminRoute = createRouteMatcher(['/admin(.*)', '/api/admin(.*)']);
-const isRiderRoute = createRouteMatcher(['/dashboard/rider(.*)', '/api/rider(.*)']);
-const isSellerRoute = createRouteMatcher(['/seller(.*)', '/api/product/add(.*)']);
+const isAdminRoute = createRouteMatcher(['/admin(.*)']);
+const isRiderRoute = createRouteMatcher(['/dashboard/rider(.*)']);
+const isSellerRoute = createRouteMatcher(['/seller(.*)']);
 
 export default clerkMiddleware(async (auth, req) => {
+    const adminRoute = isAdminRoute(req);
+    const riderRoute = isRiderRoute(req);
+    const sellerRoute = isSellerRoute(req);
+
+    if (!adminRoute && !riderRoute && !sellerRoute) {
+        return;
+    }
+
     const authResult = await auth();
     const { userId, sessionClaims } = authResult;
     const role = userId ? ((sessionClaims?.publicMetadata as any)?.role || (sessionClaims?.metadata as any)?.role) : undefined;
 
-    const hasAdminAccess = userId ? await authAdmin(userId) : false;
-    const hasRiderAccess = userId ? await authRider(userId) : false;
-    const hasSellerAccess = userId ? await authSeller(userId) : false;
-
-    console.log('Middleware Debug:', {
-        userId,
-        role,
-        hasAdminAccess,
-        hasRiderAccess,
-        hasSellerAccess,
-        path: req.nextUrl.pathname,
-        sessionClaims: !!sessionClaims,
-        isSellerRoute: isSellerRoute(req)
-    });
-
-    const isProtectedRoute = isAdminRoute(req) || isRiderRoute(req) || isSellerRoute(req);
-
-    if (isProtectedRoute && !userId) {
-        console.log('Middleware: no server session found, deferring auth to route/layout checks');
+    if (!userId) {
         return;
     }
 
-    if (isAdminRoute(req) && !hasAdminAccess) {
-        console.log('Blocking admin access - hasAdminAccess:', hasAdminAccess, 'userId:', userId, 'role:', role);
+    const hasAdminAccess = adminRoute
+        ? role === 'admin' || await authAdmin(userId)
+        : false;
+    const hasRiderAccess = riderRoute
+        ? role === 'rider' || role === 'admin' || await authRider(userId)
+        : false;
+    const hasSellerAccess = sellerRoute
+        ? role === 'seller' || role === 'admin' || await authSeller(userId)
+        : false;
+
+    if (adminRoute && !hasAdminAccess) {
         return NextResponse.redirect(new URL('/', req.url));
     }
 
-    if (isRiderRoute(req) && !hasRiderAccess) {
-        console.log('Blocking rider access');
+    if (riderRoute && !hasRiderAccess) {
         return NextResponse.redirect(new URL('/', req.url));
     }
 
-    if (isSellerRoute(req) && !hasSellerAccess) {
-        console.log('Blocking seller access');
+    if (sellerRoute && !hasSellerAccess) {
         return NextResponse.redirect(new URL('/', req.url));
     }
 });
 
 export const config = {
     matcher: [
-        '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-        '/(api|trpc)(.*)',
+        '/admin(.*)',
+        '/seller(.*)',
+        '/dashboard/rider(.*)',
+        '/api/admin(.*)',
+        '/api/auth(.*)',
+        '/api/cart(.*)',
+        '/api/order(.*)',
+        '/api/product/add(.*)',
+        '/api/product/delete(.*)',
+        '/api/product/seller-list(.*)',
+        '/api/product/seller-item(.*)',
+        '/api/product/update(.*)',
+        '/api/rider(.*)',
+        '/api/user(.*)',
     ],
 };

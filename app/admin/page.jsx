@@ -27,13 +27,13 @@ const statusColors = {
 };
 
 export default function AdminDashboard() {
-    const { getToken, user, currency } = useAppContext();
+    const { getToken, user, authReady, formatCurrency, formatCompactCurrency } = useAppContext();
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (user) fetchStats();
-    }, [user]);
+        if (authReady && user) fetchStats();
+    }, [authReady, user]);
 
     const fetchStats = async () => {
         try {
@@ -77,7 +77,7 @@ export default function AdminDashboard() {
                 <StatCard
                     icon="💰"
                     label="Total Revenue"
-                    value={`${currency}${stats.totalRevenue.toLocaleString()}`}
+                    value={formatCurrency(stats.totalRevenue)}
                     sub="All time earnings"
                     color="bg-green-50"
                 />
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
                         {stats.revenueByDay.map((day, i) => (
                             <div key={i} className="flex-1 flex flex-col items-center gap-1">
                                 <span className="text-xs text-gray-500 font-medium">
-                                    {currency}{day.revenue > 999 ? `${(day.revenue/1000).toFixed(1)}k` : day.revenue}
+                                    {formatCompactCurrency(day.revenue)}
                                 </span>
                                 <div className="w-full bg-gray-100 rounded-t-lg overflow-hidden flex flex-col justify-end" style={{ height: '100px' }}>
                                     <div
@@ -184,7 +184,7 @@ export default function AdminDashboard() {
                                         #{String(order._id).slice(-8).toUpperCase()}
                                     </td>
                                     <td className="px-6 py-4 font-semibold text-gray-800">
-                                        {currency}{(order.amount || 0).toLocaleString()}
+                                        {formatCurrency(order.amount)}
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[order.status] || 'bg-gray-100 text-gray-600'}`}>

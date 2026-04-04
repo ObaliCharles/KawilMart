@@ -1,5 +1,6 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import { getRequestUserId } from "@/lib/requestAuth";
+import { invalidateUserRoleCache } from "@/lib/userRoleCache";
 import { NextResponse } from "next/server";
 
 export async function POST(request) {
@@ -10,15 +11,12 @@ export async function POST(request) {
         }
 
         const client = await clerkClient();
-        const user = await client.users.getUser(userId);
-
-        // Set admin role
-        await client.users.updateUser(userId, {
+        await client.users.updateUserMetadata(userId, {
             publicMetadata: {
-                ...user.publicMetadata,
                 role: 'admin'
             }
         });
+        invalidateUserRoleCache(userId);
 
         return NextResponse.json({
             success: true,

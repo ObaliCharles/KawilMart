@@ -1,17 +1,23 @@
 'use client'
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { assets } from "@/assets/assets";
 import Image from "next/image";
 import { useAppContext } from "@/context/AppContext";
+import Loading from "@/components/Loading";
 import toast from "react-hot-toast";
 import axios from 'axios';
+import { useSearchParams } from "next/navigation";
 
 
 const AddProduct = () => {
 
-  const { getToken } = useAppContext();
+  const { getToken, router, authReady, user } = useAppContext();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
+  const isEditMode = Boolean(editId);
 
   const [files, setFiles] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Earphone');
@@ -20,6 +26,70 @@ const AddProduct = () => {
   const [location, setLocation] = useState('');
   const [sellerContact, setSellerContact] = useState('');
   const [sellerLocation, setSellerLocation] = useState('');
+  const [loadingProduct, setLoadingProduct] = useState(false);
+
+  const imagePreviews = useMemo(() => (
+    [...Array(4)].map((_, index) => (
+      files[index]
+        ? URL.createObjectURL(files[index])
+        : existingImages[index] || assets.upload_area
+    ))
+  ), [existingImages, files]);
+
+  const resetForm = () => {
+    setFiles([]);
+    setExistingImages([]);
+    setName('');
+    setDescription('');
+    setCategory('Earphone');
+    setPrice('');
+    setOfferPrice('');
+    setLocation('');
+    setSellerContact('');
+    setSellerLocation('');
+  };
+
+  const fetchProductDetails = async () => {
+    if (!editId) {
+      resetForm();
+      return;
+    }
+
+    try {
+      setLoadingProduct(true);
+      const token = await getToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      const { data } = await axios.get(`/api/product/seller-item?productId=${editId}`, { headers });
+
+      if (data.success) {
+        const product = data.product;
+        setFiles([]);
+        setExistingImages(product.image || []);
+        setName(product.name || '');
+        setDescription(product.description || '');
+        setCategory(product.category || 'Earphone');
+        setPrice(product.price?.toString() || '');
+        setOfferPrice(product.offerPrice?.toString() || '');
+        setLocation(product.location || '');
+        setSellerContact(product.sellerContact || '');
+        setSellerLocation(product.sellerLocation || '');
+      } else {
+        toast.error(data.message || 'Failed to load product details');
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error.message || 'Failed to load product details');
+    } finally {
+      setLoadingProduct(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authReady && user) {
+      fetchProductDetails();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authReady, user, editId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,27 +105,42 @@ const AddProduct = () => {
     formData.append('sellerContact', sellerContact)
     formData.append('sellerLocation', sellerLocation)
 
-    for (let i = 0; i < files.length; i++) {
-      formData.append('images', files[i])
+    if (isEditMode) {
+      formData.append('productId', editId)
+      formData.append('existingImages', JSON.stringify(existingImages))
+      for (let i = 0; i < 4; i += 1) {
+        if (files[i]) {
+          formData.append(`image_${i}`, files[i])
+        }
+      }
+    } else {
+      if (!files.filter(Boolean).length) {
+        toast.error('Please upload at least one product image')
+        return
+      }
+
+      for (let i = 0; i < files.length; i++) {
+        if (files[i]) {
+          formData.append('images', files[i])
+        }
+      }
     }
 
     try {
       
       const token = await getToken()
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
-      const { data } = await axios.post('/api/product/add',formData, {headers: {Authorization: `Bearer ${token}`}})
+      const endpoint = isEditMode ? '/api/product/update' : '/api/product/add'
+      const { data } = await axios.post(endpoint, formData, { headers })
 
       if (data.success) {
         toast.success(data.message)
-        setFiles([]);
-        setName('');
-        setDescription('');
-        setCategory('');
-        setPrice('');
-        setOfferPrice('')
-        setLocation('');
-        setSellerContact('');
-        setSellerLocation('');
+        if (isEditMode) {
+          router.push('/seller/product-list')
+        } else {
+          resetForm();
+        }
       } else{
         toast.error(data.message);
       }
@@ -70,7 +155,20 @@ const AddProduct = () => {
 
   return (
     <div className="flex-1 min-h-screen flex flex-col justify-between">
+      {loadingProduct ? (
+        <Loading message="Loading product details..." />
+      ) : (
       <form onSubmit={handleSubmit} className="md:p-10 p-4 space-y-5 max-w-lg">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">
+            {isEditMode ? 'Edit Product Details' : 'Add Product'}
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {isEditMode
+              ? 'Update your product information here. Existing images stay unless you replace them.'
+              : 'Add a new product to your seller catalog.'}
+          </p>
+        </div>
         <div>
           <p className="text-base font-medium">Product Image</p>
           <div className="flex flex-wrap items-center gap-3 mt-2">
@@ -85,7 +183,7 @@ const AddProduct = () => {
                 <Image
                   key={index}
                   className="max-w-24 cursor-pointer"
-                  src={files[index] ? URL.createObjectURL(files[index]) : assets.upload_area}
+                  src={imagePreviews[index]}
                   alt=""
                   width={100}
                   height={100}
@@ -135,7 +233,7 @@ const AddProduct = () => {
               id="category"
               className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40"
               onChange={(e) => setCategory(e.target.value)}
-              defaultValue={category}
+              value={category}
             >
               <option value="Earphone">Earphone</option>
               <option value="Headphone">Headphone</option>
@@ -217,10 +315,22 @@ const AddProduct = () => {
             required
           />
         </div>
-        <button type="submit" className="px-8 py-2.5 bg-orange-600 text-white font-medium rounded">
-          ADD
-        </button>
+        <div className="flex items-center gap-3">
+          <button type="submit" className="px-8 py-2.5 bg-orange-600 text-white font-medium rounded">
+            {isEditMode ? 'UPDATE' : 'ADD'}
+          </button>
+          {isEditMode && (
+            <button
+              type="button"
+              onClick={() => router.push('/seller/product-list')}
+              className="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </form>
+      )}
       {/* <Footer /> */}
     </div>
   );

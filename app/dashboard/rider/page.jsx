@@ -26,7 +26,7 @@ const getStep = (status) => {
 };
 
 export default function RiderDashboard() {
-    const { getToken, user, currency } = useAppContext();
+    const { getToken, user, authReady, formatCurrency } = useAppContext();
     const [deliveries, setDeliveries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('active');
@@ -34,8 +34,8 @@ export default function RiderDashboard() {
     const [expandedId, setExpandedId] = useState(null);
 
     useEffect(() => {
-        if (user) fetchDeliveries();
-    }, [user]);
+        if (authReady && user) fetchDeliveries();
+    }, [authReady, user]);
 
     const fetchDeliveries = async () => {
         try {
@@ -115,7 +115,7 @@ export default function RiderDashboard() {
                         { icon: '🛵', label: 'Active Deliveries', value: active.length, bg: 'bg-orange-50' },
                         { icon: '✅', label: 'Delivered', value: totalDelivered, bg: 'bg-green-50' },
                         { icon: '📦', label: 'Total Assigned', value: deliveries.length, bg: 'bg-blue-50' },
-                        { icon: '💰', label: 'Est. Earnings', value: `${currency}${Math.round(totalEarnings).toLocaleString()}`, bg: 'bg-purple-50' },
+                        { icon: '💰', label: 'Est. Earnings', value: formatCurrency(totalEarnings), bg: 'bg-purple-50' },
                     ].map(s => (
                         <div key={s.label} className={`${s.bg} rounded-xl p-4 border border-white shadow-sm`}>
                             <span className="text-2xl">{s.icon}</span>
@@ -178,7 +178,7 @@ export default function RiderDashboard() {
                                                     Order #{String(delivery._id).slice(-8).toUpperCase()}
                                                 </p>
                                                 <p className="text-xs text-gray-500 mt-0.5">
-                                                    {delivery.items.length} item(s) · {currency}{(delivery.amount || 0).toLocaleString()}
+                                                    {delivery.items.length} item(s) · {formatCurrency(delivery.amount)}
                                                 </p>
                                             </div>
                                         </div>
@@ -258,10 +258,10 @@ export default function RiderDashboard() {
                                                     <div className="mt-3 p-3 bg-gray-50 rounded-xl text-sm text-gray-600 space-y-1">
                                                         <p>📅 {new Date(delivery.date).toLocaleDateString()}</p>
                                                         <p className="font-semibold text-gray-800">
-                                                            💰 Total: {currency}{(delivery.amount || 0).toLocaleString()}
+                                                            💰 Total: {formatCurrency(delivery.amount)}
                                                         </p>
                                                         <p className="text-green-600 font-medium">
-                                                            🎁 Your commission: {currency}{Math.round((delivery.amount || 0) * 0.05).toLocaleString()}
+                                                            🎁 Your commission: {formatCurrency((delivery.amount || 0) * 0.05)}
                                                         </p>
                                                     </div>
                                                 </div>

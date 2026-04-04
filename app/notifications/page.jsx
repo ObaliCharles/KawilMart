@@ -8,7 +8,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 const Notifications = () => {
-  const { getToken, user } = useAppContext();
+  const { getToken, user, authReady } = useAppContext();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,10 +48,10 @@ const Notifications = () => {
   };
 
   useEffect(() => {
-    if (user) {
+    if (authReady && user) {
       fetchNotifications();
     }
-  }, [user]);
+  }, [authReady, user]);
 
   if (loading) return (
     <>

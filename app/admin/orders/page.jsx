@@ -17,15 +17,15 @@ const statusColors = {
 };
 
 export default function AdminOrders() {
-    const { getToken, user, currency } = useAppContext();
+    const { getToken, user, authReady, formatCurrency } = useAppContext();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('All');
     const [updatingId, setUpdatingId] = useState(null);
 
     useEffect(() => {
-        if (user) fetchOrders();
-    }, [user]);
+        if (authReady && user) fetchOrders();
+    }, [authReady, user]);
 
     const fetchOrders = async () => {
         try {
@@ -143,7 +143,7 @@ export default function AdminOrders() {
                                         ) : '—'}
                                     </td>
                                     <td className="px-5 py-4 font-semibold text-gray-800">
-                                        {currency}{(order.amount || 0).toLocaleString()}
+                                        {formatCurrency(order.amount)}
                                     </td>
                                     <td className="px-5 py-4 text-gray-500 text-xs">
                                         {new Date(order.date).toLocaleDateString()}

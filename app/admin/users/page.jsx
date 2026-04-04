@@ -3,8 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import Loading from '@/components/Loading';
-import Image from 'next/image';
+import ClerkAvatarImage from '@/components/ClerkAvatarImage';
+import { AdminUsersPageSkeleton } from '@/components/dashboard/DashboardSkeletons';
 
 const roleColors = {
     admin: 'bg-red-100 text-red-700',
@@ -21,7 +21,7 @@ const roleIcons = {
 };
 
 export default function AdminUsers() {
-    const { getToken, user } = useAppContext();
+    const { getToken, user, authReady } = useAppContext();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterRole, setFilterRole] = useState('All');
@@ -29,23 +29,28 @@ export default function AdminUsers() {
     const [updatingId, setUpdatingId] = useState(null);
 
     useEffect(() => {
-        if (user) fetchUsers();
-    }, [user]);
-
-    const fetchUsers = async () => {
-        try {
-            const token = await getToken();
-            const { data } = await axios.get('/api/admin/users', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (data.success) setUsers(data.users);
-            else toast.error(data.message);
-        } catch (err) {
-            toast.error(err.message);
-        } finally {
-            setLoading(false);
+        if (!authReady || !user) {
+            return;
         }
-    };
+
+        const fetchUsers = async () => {
+            try {
+                setLoading(true);
+                const token = await getToken();
+                const { data } = await axios.get('/api/admin/users', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (data.success) setUsers(data.users);
+                else toast.error(data.message);
+            } catch (err) {
+                toast.error(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        void fetchUsers();
+    }, [authReady, getToken, user]);
 
     const updateRole = async (targetUserId, role) => {
         setUpdatingId(targetUserId);
@@ -76,7 +81,7 @@ export default function AdminUsers() {
         return matchRole && matchSearch;
     });
 
-    if (loading) return <Loading />;
+    if (loading) return <AdminUsersPageSkeleton />;
 
     return (
         <div className="space-y-6 max-w-7xl">
@@ -152,10 +157,12 @@ export default function AdminUsers() {
                                     <td className="px-5 py-4">
                                         <div className="flex items-center gap-3">
                                             {u.imageUrl ? (
-                                                <img
+                                                <ClerkAvatarImage
                                                     src={u.imageUrl}
                                                     alt={u.name}
-                                                    className="w-9 h-9 rounded-full object-cover"
+                                                    className="w-9 h-9"
+                                                    fallback={u.name?.charAt(0) || '?'}
+                                                    fallbackClassName="text-sm"
                                                 />
                                             ) : (
                                                 <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold">

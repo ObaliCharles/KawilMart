@@ -1,11 +1,14 @@
+'use client'
+
 import React from "react";
+import Link from "next/link";
 import ProductCard from "./ProductCard";
 import { useAppContext } from "@/context/AppContext";
 import Loading from "./Loading";
 
 const HomeProducts = () => {
 
-  const { products, router, loadingProducts } = useAppContext()
+  const { products, loadingProducts } = useAppContext()
 
   if (loadingProducts) {
     return <Loading message="Refreshing products..." />
@@ -17,9 +20,9 @@ const HomeProducts = () => {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 flex-col items-center gap-6 mt-6 pb-14 w-full">
         {products.map((product, index) => <ProductCard key={index} product={product} />)}
       </div>
-      <button onClick={() => { router.push('/all-products') }} className="px-12 py-2.5 border rounded text-gray-500/70 hover:bg-slate-50/90 transition">
+      <Link href="/all-products" className="px-12 py-2.5 border rounded text-gray-500/70 hover:bg-slate-50/90 transition">
         See more
-      </button>
+      </Link>
     </div>
   );
 };

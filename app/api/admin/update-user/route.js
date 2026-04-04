@@ -1,5 +1,6 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import { getRequestUserId } from "@/lib/requestAuth";
+import { invalidateUserRoleCache } from "@/lib/userRoleCache";
 import { NextResponse } from "next/server";
 import authAdmin from "@/lib/authAdmin";
 import connectDB from "@/config/db";
@@ -24,6 +25,7 @@ export async function POST(request) {
             await client.users.updateUser(targetUserId, {
                 publicMetadata: { role: updates.role }
             });
+            invalidateUserRoleCache(targetUserId);
         }
 
         return NextResponse.json({
