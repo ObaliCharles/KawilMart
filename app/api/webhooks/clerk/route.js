@@ -1,8 +1,6 @@
 import { Webhook } from 'svix'
 import { headers } from 'next/headers'
-import { WebhookEvent } from '@clerk/nextjs/server'
-import connectDB from '@/config/db'
-import User from '@/models/User'
+import { deleteUserFromDatabase, syncUserFromWebhookPayload } from '@/lib/clerkUserSync'
 
 export async function POST(req) {
     try {
@@ -49,22 +47,16 @@ export async function POST(req) {
         }
 
         // Get the ID and type
-        const { id } = evt.data
         const eventType = evt.type
 
-        if (eventType === 'user.created') {
-            const { id, email_addresses, image_url, first_name, last_name } = evt.data
+        if (eventType === 'user.created' || eventType === 'user.updated') {
+            const userData = await syncUserFromWebhookPayload(evt.data)
+            console.log(`User ${eventType === 'user.created' ? 'created' : 'updated'} in database:`, userData?._id)
+        }
 
-            const userData = {
-                _id: id,
-                name: `${first_name} ${last_name}`.trim(),
-                email: email_addresses[0].email_address,
-                imageUrl: image_url,
-            }
-
-            await connectDB()
-            await User.create(userData)
-            console.log('User created in database:', userData)
+        if (eventType === 'user.deleted') {
+            await deleteUserFromDatabase(evt.data.id)
+            console.log('User deleted from database:', evt.data.id)
         }
 
         return new Response('', { status: 200 })

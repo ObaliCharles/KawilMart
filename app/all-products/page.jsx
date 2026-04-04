@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AllProductsPageSkeleton, ProductsGridSkeleton } from "@/components/PageSkeletons";
 import { useAppContext } from "@/context/AppContext";
-import { useState, useEffect, Suspense } from "react";
+import { Suspense, useDeferredValue, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 const categories = [
@@ -21,12 +21,122 @@ const priceRanges = [
 ];
 
 const sortOptions = [
+  { label: "Best Match", value: "relevance" },
   { label: "Default", value: "default" },
   { label: "Price: Low to High", value: "price_asc" },
   { label: "Price: High to Low", value: "price_desc" },
   { label: "Newest First", value: "newest" },
   { label: "Best Discount", value: "discount" },
 ];
+
+const normalizeSearchText = (value = "") => (
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+);
+
+const buildSearchTerms = (query) => {
+  const baseTerms = normalizeSearchText(query).split(" ").filter(Boolean);
+  const expandedTerms = new Set();
+
+  baseTerms.forEach((term) => {
+    expandedTerms.add(term);
+
+    if (term.length > 3 && term.endsWith("es")) {
+      expandedTerms.add(term.slice(0, -2));
+    }
+
+    if (term.length > 2 && term.endsWith("s")) {
+      expandedTerms.add(term.slice(0, -1));
+    }
+  });
+
+  return [...expandedTerms];
+};
+
+const scoreFieldMatch = (value, normalizedQuery, searchTerms, weights) => {
+  const normalizedValue = normalizeSearchText(value);
+
+  if (!normalizedValue) {
+    return 0;
+  }
+
+  const compactValue = normalizedValue.replace(/\s+/g, "");
+  const compactQuery = normalizedQuery.replace(/\s+/g, "");
+  let score = 0;
+
+  if (compactQuery && compactValue === compactQuery) {
+    score += weights.exact;
+  } else if (compactQuery && compactValue.startsWith(compactQuery)) {
+    score += weights.startsWith;
+  } else if (compactQuery && compactValue.includes(compactQuery)) {
+    score += weights.includes;
+  }
+
+  const matchedTerms = searchTerms.filter((term) => normalizedValue.includes(term)).length;
+
+  if (matchedTerms > 0) {
+    score += matchedTerms * weights.term;
+
+    if (matchedTerms === searchTerms.length) {
+      score += weights.coverageBonus;
+    }
+  }
+
+  return score;
+};
+
+const getProductSearchScore = (product, query) => {
+  const normalizedQuery = normalizeSearchText(query);
+
+  if (!normalizedQuery) {
+    return 0;
+  }
+
+  const searchTerms = buildSearchTerms(normalizedQuery);
+  const normalizedName = normalizeSearchText(product.name);
+  const nameWords = normalizedName.split(" ").filter(Boolean);
+
+  let score = 0;
+
+  score += scoreFieldMatch(product.name, normalizedQuery, searchTerms, {
+    exact: 1400,
+    startsWith: 1000,
+    includes: 760,
+    term: 140,
+    coverageBonus: 320,
+  });
+
+  score += scoreFieldMatch(product.category, normalizedQuery, searchTerms, {
+    exact: 520,
+    startsWith: 360,
+    includes: 240,
+    term: 80,
+    coverageBonus: 140,
+  });
+
+  score += scoreFieldMatch(product.description, normalizedQuery, searchTerms, {
+    exact: 220,
+    startsWith: 150,
+    includes: 110,
+    term: 32,
+    coverageBonus: 70,
+  });
+
+  if (searchTerms.length > 1 && searchTerms.every((term) => nameWords.some((word) => word.startsWith(term)))) {
+    score += 260;
+  }
+
+  if (normalizedName.includes(normalizedQuery) && product.name.length <= 40) {
+    score += 60;
+  }
+
+  return score;
+};
 
 function AllProductsInner() {
   const { products, loadingProducts } = useAppContext();
@@ -37,38 +147,60 @@ function AllProductsInner() {
   const [sortBy, setSortBy] = useState("default");
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const hasActiveSearch = deferredSearchQuery.trim().length > 0;
+  const effectiveSortBy = hasActiveSearch
+    ? (sortBy === "default" ? "relevance" : sortBy)
+    : (sortBy === "relevance" ? "default" : sortBy);
 
   useEffect(() => {
     const cat = searchParams.get("category");
-    if (cat) setSelectedCategory(cat);
+    const search = searchParams.get("search");
     const filter = searchParams.get("filter");
-    if (filter === "flash") setSortBy("discount");
+
+    setSelectedCategory(cat || "All");
+    setSearchQuery(search || "");
+    setSortBy(filter === "flash" ? "discount" : "default");
   }, [searchParams]);
 
   const filterAndSort = () => {
-    let filtered = [...products];
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(p =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
+    let filtered = products.map((product) => ({
+      product,
+      searchScore: hasActiveSearch ? getProductSearchScore(product, deferredSearchQuery) : 0,
+    }));
+
+    if (hasActiveSearch) {
+      filtered = filtered.filter(({ searchScore }) => searchScore > 0);
     }
+
     if (selectedCategory !== "All") {
-      filtered = filtered.filter(p => p.category === selectedCategory);
+      filtered = filtered.filter(({ product }) => product.category === selectedCategory);
     }
+
     const range = priceRanges[selectedPriceRange];
-    filtered = filtered.filter(p => p.offerPrice >= range.min && p.offerPrice <= range.max);
-    if (sortBy === "price_asc") filtered.sort((a, b) => a.offerPrice - b.offerPrice);
-    else if (sortBy === "price_desc") filtered.sort((a, b) => b.offerPrice - a.offerPrice);
-    else if (sortBy === "newest") filtered.sort((a, b) => b.date - a.date);
-    else if (sortBy === "discount") {
+    filtered = filtered.filter(({ product }) => product.offerPrice >= range.min && product.offerPrice <= range.max);
+
+    if (effectiveSortBy === "relevance") {
+      filtered.sort((a, b) => (
+        b.searchScore - a.searchScore ||
+        (b.product.date || 0) - (a.product.date || 0) ||
+        a.product.offerPrice - b.product.offerPrice
+      ));
+    } else if (effectiveSortBy === "price_asc") {
+      filtered.sort((a, b) => a.product.offerPrice - b.product.offerPrice);
+    } else if (effectiveSortBy === "price_desc") {
+      filtered.sort((a, b) => b.product.offerPrice - a.product.offerPrice);
+    } else if (effectiveSortBy === "newest") {
+      filtered.sort((a, b) => (b.product.date || 0) - (a.product.date || 0));
+    } else if (effectiveSortBy === "discount") {
       filtered.sort((a, b) => {
-        const da = a.price > 0 ? (a.price - a.offerPrice) / a.price : 0;
-        const db = b.price > 0 ? (b.price - b.offerPrice) / b.price : 0;
+        const da = a.product.price > 0 ? (a.product.price - a.product.offerPrice) / a.product.price : 0;
+        const db = b.product.price > 0 ? (b.product.price - b.product.offerPrice) / b.product.price : 0;
         return db - da;
       });
     }
-    return filtered;
+
+    return filtered.map(({ product }) => product);
   };
 
   const filteredProducts = filterAndSort();
@@ -133,11 +265,14 @@ function AllProductsInner() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-2xl font-bold text-gray-900">All Products</p>
-            <p className="text-sm text-gray-500 mt-1">{filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found</p>
+            <p className="text-sm text-gray-500 mt-1">
+              {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
+              {deferredSearchQuery.trim() ? ` • best matches first for "${deferredSearchQuery.trim()}"` : ""}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <select
-              value={sortBy}
+              value={effectiveSortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-400 bg-white"
             >

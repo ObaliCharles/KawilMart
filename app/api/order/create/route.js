@@ -127,25 +127,6 @@ export async function POST(request) {
         ctaLabel: "Track my order",
         ctaPath: "/my-orders",
       },
-      ...createdOrders.map((order) => {
-        const orderItemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
-        const shortOrderId = String(order._id).slice(-8).toUpperCase();
-
-        return {
-          userId: order.sellerId,
-          notification: {
-            type: "order",
-            title: "New order received",
-            message: `Order #${shortOrderId} includes ${orderItemCount} item${orderItemCount === 1 ? "" : "s"}.`,
-            read: false,
-            date: new Date(),
-          },
-          emailTitle: `New order received: #${shortOrderId}`,
-          emailMessage: `A new customer order has been placed on KawilMart. Order #${shortOrderId} includes ${orderItemCount} item${orderItemCount === 1 ? "" : "s"} and is ready for your processing.`,
-          ctaLabel: "View seller orders",
-          ctaPath: "/seller/orders",
-        };
-      }),
     ]);
 
     void sendOrderEvents(createdOrders, userId, address);
