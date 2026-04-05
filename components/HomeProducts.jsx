@@ -21,9 +21,9 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
   const panelHref = buildCategoryHref(section.value);
 
   return (
-    <div className="col-span-full overflow-hidden rounded-[2rem] border border-gray-200 bg-[#faf8f4]">
+    <div className="pattern-category-sketch-soft col-span-full overflow-hidden rounded-[2rem] border border-gray-200">
       <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className={`flex flex-col justify-between border-b border-gray-200 p-6 lg:border-b-0 ${reverse ? "lg:order-2 lg:border-l lg:border-r-0" : "lg:border-r"}`}>
+        <div className={`flex flex-col justify-between border-b border-white/70 p-6 lg:border-b-0 ${reverse ? "lg:order-2 lg:border-l lg:border-r-0 lg:border-white/70" : "lg:border-r lg:border-white/70"}`}>
           <div>
             <span className="inline-flex items-center gap-3 rounded-full bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 shadow-sm">
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#f3eee6] text-[11px] text-gray-800">
@@ -93,7 +93,7 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
                   onClick={() => navigate(productHref)}
                   onMouseEnter={() => prefetchRoute(productHref)}
                   onFocus={() => prefetchRoute(productHref)}
-                  className={`grid items-center gap-4 rounded-[1.6rem] border border-gray-200 bg-white p-3 text-left transition hover:border-orange-300 hover:shadow-sm ${index === 0 ? "sm:grid-cols-[132px_1fr]" : "sm:grid-cols-[92px_1fr]"}`}
+                  className={`grid items-center gap-4 rounded-[1.6rem] border border-white/90 bg-white/95 p-3 text-left backdrop-blur-[2px] transition hover:border-orange-300 hover:shadow-sm ${index === 0 ? "sm:grid-cols-[132px_1fr]" : "sm:grid-cols-[92px_1fr]"}`}
                 >
                   <div className={`overflow-hidden rounded-[1.2rem] bg-[#f5f5f3] ${index === 0 ? "h-32" : "h-24"}`}>
                     <Image
