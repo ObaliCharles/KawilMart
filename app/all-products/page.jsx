@@ -6,10 +6,9 @@ import { AllProductsPageSkeleton, ProductsGridSkeleton } from "@/components/Page
 import { useAppContext } from "@/context/AppContext";
 import { Suspense, useDeferredValue, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { categoryMatchesSelection, getCategoryMeta, marketplaceFilterCategories } from "@/lib/marketplaceCategories";
 
-const categories = [
-  "All", "Earphone", "Headphone", "Watch", "Smartphone", "Laptop", "Camera", "Accessories",
-];
+const categories = ["All", ...marketplaceFilterCategories];
 
 const priceRanges = [
   { label: "All Prices", min: 0, max: Infinity },
@@ -146,6 +145,7 @@ function AllProductsInner() {
   const [selectedPriceRange, setSelectedPriceRange] = useState(0);
   const [sortBy, setSortBy] = useState("default");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSeller, setSelectedSeller] = useState("");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const hasActiveSearch = deferredSearchQuery.trim().length > 0;
@@ -156,10 +156,12 @@ function AllProductsInner() {
   useEffect(() => {
     const cat = searchParams.get("category");
     const search = searchParams.get("search");
+    const seller = searchParams.get("seller");
     const filter = searchParams.get("filter");
 
     setSelectedCategory(cat || "All");
     setSearchQuery(search || "");
+    setSelectedSeller(seller || "");
     setSortBy(filter === "flash" ? "discount" : "default");
   }, [searchParams]);
 
@@ -174,7 +176,11 @@ function AllProductsInner() {
     }
 
     if (selectedCategory !== "All") {
-      filtered = filtered.filter(({ product }) => product.category === selectedCategory);
+      filtered = filtered.filter(({ product }) => categoryMatchesSelection(product.category, selectedCategory));
+    }
+
+    if (selectedSeller) {
+      filtered = filtered.filter(({ product }) => product.userId === selectedSeller);
     }
 
     const range = priceRanges[selectedPriceRange];
@@ -204,6 +210,9 @@ function AllProductsInner() {
   };
 
   const filteredProducts = filterAndSort();
+  const sellerReferenceProduct = selectedSeller ? products.find((product) => product.userId === selectedSeller) : null;
+  const sellerFilterLabel = sellerReferenceProduct?.sellerLocation || sellerReferenceProduct?.location || "Seller collection";
+  const selectedCategoryMeta = selectedCategory !== "All" ? getCategoryMeta(selectedCategory) : null;
 
   const FilterPanel = () => (
     <div className="space-y-6">
@@ -219,7 +228,7 @@ function AllProductsInner() {
       </div>
       <div>
         <p className="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wide">Category</p>
-        <div className="space-y-1">
+        <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
           {categories.map((cat) => (
             <button
               key={cat}
@@ -228,7 +237,7 @@ function AllProductsInner() {
                 selectedCategory === cat ? "bg-orange-600 text-white font-medium" : "text-gray-600 hover:bg-gray-50"
               }`}
             >
-              {cat}
+              {cat === "All" ? cat : getCategoryMeta(cat).label}
             </button>
           ))}
         </div>
@@ -250,7 +259,13 @@ function AllProductsInner() {
         </div>
       </div>
       <button
-        onClick={() => { setSelectedCategory("All"); setSelectedPriceRange(0); setSortBy("default"); setSearchQuery(""); }}
+        onClick={() => {
+          setSelectedCategory("All");
+          setSelectedPriceRange(0);
+          setSortBy("default");
+          setSearchQuery("");
+          setSelectedSeller("");
+        }}
         className="w-full py-2 border border-orange-500 text-orange-600 rounded-lg text-sm hover:bg-orange-50 transition"
       >
         Clear All Filters
@@ -268,6 +283,7 @@ function AllProductsInner() {
             <p className="text-sm text-gray-500 mt-1">
               {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
               {deferredSearchQuery.trim() ? ` • best matches first for "${deferredSearchQuery.trim()}"` : ""}
+              {selectedSeller ? ` • store offers from ${sellerFilterLabel}` : ""}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -290,11 +306,11 @@ function AllProductsInner() {
         </div>
 
         {/* Active tags */}
-        {(selectedCategory !== "All" || selectedPriceRange !== 0 || searchQuery) && (
+        {(selectedCategory !== "All" || selectedPriceRange !== 0 || searchQuery || selectedSeller) && (
           <div className="flex flex-wrap gap-2 mb-4">
             {selectedCategory !== "All" && (
               <span className="flex items-center gap-1 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-medium">
-                📦 {selectedCategory}
+                📦 {selectedCategoryMeta?.label || selectedCategory}
                 <button onClick={() => setSelectedCategory("All")} className="ml-1 font-bold hover:text-orange-900">×</button>
               </span>
             )}
@@ -308,6 +324,12 @@ function AllProductsInner() {
               <span className="flex items-center gap-1 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-medium">
                 🔍 &quot;{searchQuery}&quot;
                 <button onClick={() => setSearchQuery("")} className="ml-1 font-bold hover:text-orange-900">×</button>
+              </span>
+            )}
+            {selectedSeller && (
+              <span className="flex items-center gap-1 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-medium">
+                🏪 {sellerFilterLabel}
+                <button onClick={() => setSelectedSeller("")} className="ml-1 font-bold hover:text-orange-900">×</button>
               </span>
             )}
           </div>

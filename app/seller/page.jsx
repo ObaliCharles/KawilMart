@@ -9,6 +9,7 @@ import axios from 'axios';
 import { useSearchParams } from "next/navigation";
 import Footer from "@/components/seller/Footer";
 import { SellerProductFormSkeleton } from "@/components/dashboard/DashboardSkeletons";
+import { defaultSellerCategory, sellerCategoryGroups } from "@/lib/marketplaceCategories";
 
 const statusColors = {
   'Order Placed': 'bg-blue-100 text-blue-700',
@@ -91,7 +92,7 @@ const AddProductInner = () => {
   const [existingImages, setExistingImages] = useState([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('Earphone');
+  const [category, setCategory] = useState(defaultSellerCategory);
   const [price, setPrice] = useState('');
   const [offerPrice, setOfferPrice] = useState('');
   const [location, setLocation] = useState('');
@@ -115,7 +116,7 @@ const AddProductInner = () => {
     setExistingImages([]);
     setName('');
     setDescription('');
-    setCategory('Earphone');
+    setCategory(defaultSellerCategory);
     setPrice('');
     setOfferPrice('');
     setLocation('');
@@ -141,7 +142,7 @@ const AddProductInner = () => {
         setExistingImages(product.image || []);
         setName(product.name || '');
         setDescription(product.description || '');
-        setCategory(product.category || 'Earphone');
+        setCategory(product.category || defaultSellerCategory);
         setPrice(product.price?.toString() || '');
         setOfferPrice(product.offerPrice?.toString() || '');
         setLocation(product.location || '');
@@ -728,13 +729,15 @@ const AddProductInner = () => {
                     onChange={(e) => setCategory(e.target.value)}
                     value={category}
                   >
-                    <option value="Earphone">Earphone</option>
-                    <option value="Headphone">Headphone</option>
-                    <option value="Watch">Watch</option>
-                    <option value="Smartphone">Smartphone</option>
-                    <option value="Laptop">Laptop</option>
-                    <option value="Camera">Camera</option>
-                    <option value="Accessories">Accessories</option>
+                    {sellerCategoryGroups.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.items.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
                   </select>
                 </div>
 

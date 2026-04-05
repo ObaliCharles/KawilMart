@@ -9,7 +9,7 @@ const outfit = Outfit({ subsets: ['latin'], weight: ["300", "400", "500"] })
 
 export const metadata = {
   title: "KawilMart | Northern Uganda's Trusted Online Store",
-  description: "Shop electronics, gadgets, and essentials with KawilMart",
+  description: "Shop fashion, beauty, electronics, home essentials, and more with KawilMart",
 };
 
 export default function RootLayout({ children }) {

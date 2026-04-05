@@ -3,6 +3,7 @@ import FeaturedProduct from "@/components/FeaturedProduct";
 import FlashDeals from "@/components/FlashDeals";
 import Footer from "@/components/Footer";
 import HeaderSlider from "@/components/HeaderSlider";
+import HomeOfferCollections from "@/components/HomeOfferCollections";
 import HomeProducts from "@/components/HomeProducts";
 import Navbar from "@/components/Navbar";
 import NewsLetter from "@/components/NewsLetter";
@@ -22,6 +23,7 @@ const Home = async () => {
         <ShopByCategory />
         <FlashDeals />
         <HomeProducts />
+        <HomeOfferCollections />
         <FeaturedProduct cards={siteContent.featuredCards} />
         <Banner banner={siteContent.promoBanner} />
         <NewsLetter newsletter={siteContent.newsletter} />

@@ -16,10 +16,9 @@ const Footer = () => {
         <div className="w-4/5">
           <Image className="w-28 md:w-32" src={assets.logo} alt="logo" />
           <p className="mt-6 text-sm">
-            KawilMart is your trusted online store in Northern Uganda. 
-            We provide quality electronics and everyday essentials at affordable prices, 
-            delivered straight to your doorstep. Shop with confidence 
-            and convenience, right from your community.
+            KawilMart is your trusted online marketplace in Northern Uganda.
+            We now support fashion, beauty, electronics, home essentials, and more at affordable prices,
+            all from local sellers and delivered with convenience right to your community.
           </p>
         </div>
 
