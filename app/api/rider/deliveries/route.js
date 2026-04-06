@@ -36,6 +36,8 @@ const getNotification = (title, message) => ({
     date: new Date(),
 });
 
+const RIDER_AVAILABILITY_VALUES = new Set(["available", "busy"]);
+
 export async function GET(request) {
     try {
         const userId = await getRequestUserId(request);
@@ -115,15 +117,62 @@ export async function PUT(request) {
         }
 
         const role = await getUserRole(userId);
-        const { orderId, status, assignmentResponse } = await request.json();
+        const { orderId, status, assignmentResponse, riderAvailability } = await request.json();
+
+        await connectDB();
+
+        const riderUser = await User.findById(userId).select("_id name phoneNumber riderAvailability imageUrl");
+        if (!riderUser) {
+            return NextResponse.json({ success: false, message: "Rider account not found" }, { status: 404 });
+        }
+
+        if (typeof riderAvailability === "string" && riderAvailability.trim()) {
+            const nextAvailability = riderAvailability.trim().toLowerCase();
+
+            if (!RIDER_AVAILABILITY_VALUES.has(nextAvailability)) {
+                return NextResponse.json({ success: false, message: "Invalid rider availability" }, { status: 400 });
+            }
+
+            if (nextAvailability === "available") {
+                const activeAcceptedDeliveries = await Order.countDocuments({
+                    riderId: userId,
+                    riderAssignmentStatus: RIDER_ASSIGNMENT_STATUSES.ACCEPTED,
+                    status: {
+                        $in: [
+                            ORDER_STATUSES.ACCEPTED,
+                            ORDER_STATUSES.PROCESSING,
+                            ORDER_STATUSES.READY,
+                            ORDER_STATUSES.OUT_FOR_DELIVERY,
+                        ],
+                    },
+                });
+
+                if (activeAcceptedDeliveries > 0) {
+                    return NextResponse.json({
+                        success: false,
+                        message: "Finish or hand off your active delivery before marking yourself available.",
+                    }, { status: 400 });
+                }
+            }
+
+            if (riderUser.riderAvailability !== nextAvailability) {
+                riderUser.riderAvailability = nextAvailability;
+                await riderUser.save();
+            }
+
+            return NextResponse.json({
+                success: true,
+                message: nextAvailability === "busy"
+                    ? "You are now marked busy"
+                    : "You are now marked available",
+                riderAvailability: riderUser.riderAvailability || nextAvailability,
+            });
+        }
 
         if (!orderId) {
             return NextResponse.json({ success: false, message: "Order ID is required" }, { status: 400 });
         }
 
-        await connectDB();
-
-        const riderUser = await User.findById(userId).select("_id name phoneNumber riderAvailability imageUrl");
         const order = await Order.findById(orderId);
         if (!order) {
             return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });

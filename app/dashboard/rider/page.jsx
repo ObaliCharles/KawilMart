@@ -18,6 +18,7 @@ export default function RiderDashboard() {
     const [updatingId, setUpdatingId] = useState("");
     const [expandedId, setExpandedId] = useState(null);
     const [riderAvailability, setRiderAvailability] = useState('available');
+    const [availabilityUpdating, setAvailabilityUpdating] = useState(false);
 
     const fetchDeliveries = async () => {
         try {
@@ -71,11 +72,43 @@ export default function RiderDashboard() {
         }
     };
 
+    const updateAvailability = async (nextAvailability) => {
+        if (availabilityUpdating || riderAvailability === nextAvailability) {
+            return;
+        }
+
+        setAvailabilityUpdating(true);
+        try {
+            const token = await getToken();
+            const { data } = await axios.put(
+                '/api/rider/deliveries',
+                { riderAvailability: nextAvailability },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (data.success) {
+                setRiderAvailability(data.riderAvailability || nextAvailability);
+                toast.success(data.message || 'Availability updated');
+                await fetchDeliveries();
+            } else {
+                toast.error(data.message || 'Failed to update availability');
+            }
+        } catch (error) {
+            toast.error(error?.response?.data?.message || error.message || 'Failed to update availability');
+        } finally {
+            setAvailabilityUpdating(false);
+        }
+    };
+
     const active = deliveries.filter((delivery) => delivery.status !== 'COMPLETED');
     const completed = deliveries.filter((delivery) => delivery.status === 'COMPLETED');
     const displayed = activeTab === 'active' ? active : completed;
     const pendingAssignments = active.filter((delivery) => delivery.actions?.canAcceptAssignment).length;
     const onTheRoad = active.filter((delivery) => delivery.status === 'OUT_FOR_DELIVERY').length;
+    const activeAcceptedTrips = active.filter((delivery) =>
+        ['ACCEPTED', 'PROCESSING', 'READY', 'OUT_FOR_DELIVERY'].includes(delivery.status)
+            && delivery.riderAssignmentStatus === 'ACCEPTED'
+    ).length;
     const totalDelivered = deliveries.filter((delivery) => ['DELIVERED', 'COMPLETED'].includes(delivery.status)).length;
     const totalPayout = deliveries
         .filter((delivery) => ['DELIVERED', 'COMPLETED'].includes(delivery.status))
@@ -108,11 +141,46 @@ export default function RiderDashboard() {
                         <h1 className="text-2xl font-bold text-gray-900">Delivery Dashboard</h1>
                         <p className="mt-1 text-sm text-gray-500">Accept jobs, unlock contacts after acceptance, and update delivery progress inside KawilMart.</p>
                     </div>
-                    <Link href="/">
-                        <div className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-                            <Image src={assets.logo} alt="logo" className="w-20 sm:w-24" />
+                    <div className="flex flex-col items-start gap-3 sm:items-end">
+                        <div className="rounded-2xl border border-gray-200 bg-white p-1 shadow-sm">
+                            <div className="flex flex-wrap gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() => void updateAvailability('available')}
+                                    disabled={availabilityUpdating || riderAvailability === 'available'}
+                                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                                        riderAvailability === 'available'
+                                            ? 'bg-emerald-600 text-white'
+                                            : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
+                                    } ${availabilityUpdating ? 'cursor-wait opacity-70' : ''}`}
+                                >
+                                    Ready for work
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void updateAvailability('busy')}
+                                    disabled={availabilityUpdating || riderAvailability === 'busy'}
+                                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                                        riderAvailability === 'busy'
+                                            ? 'bg-orange-600 text-white'
+                                            : 'text-gray-600 hover:bg-orange-50 hover:text-orange-700'
+                                    } ${availabilityUpdating ? 'cursor-wait opacity-70' : ''}`}
+                                >
+                                    Busy
+                                </button>
+                            </div>
                         </div>
-                    </Link>
+                        <p className="max-w-sm text-xs text-gray-500 sm:text-right">
+                            {activeAcceptedTrips > 0
+                                ? `You still have ${activeAcceptedTrips} active delivery ${activeAcceptedTrips === 1 ? 'trip' : 'trips'}, so you cannot mark yourself ready until it is completed.`
+                                : 'Use this switch to tell sellers and admins whether you are ready to receive delivery work.'}
+                        </p>
+                        <Link href="/">
+                            <div className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
+                                <Image src={assets.logo} alt="logo" className="w-20 sm:w-24" />
+                            </div>
+                        </Link>
+                    </div>
                 </div>
 
                 <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
