@@ -1,9 +1,12 @@
 import connectDB from "@/config/db";
+import authAdmin from "@/lib/authAdmin";
 import authSeller from "@/lib/authSeller";
+import { getSellerAccessState } from "@/lib/sellerBilling";
 import { getRequestUserId } from "@/lib/requestAuth";
 import { v2 as cloudinary } from "cloudinary";
 import { NextResponse } from "next/server";
 import Product from "@/models/Product";
+import User from "@/models/User";
 
 // Configure cloudinary
 cloudinary.config({
@@ -16,10 +19,27 @@ export async function POST(request) {
     try {
         const userId = await getRequestUserId(request);
 
-        const isSeller = await authSeller(userId);
+        const [isSeller, isAdmin] = await Promise.all([
+            authSeller(userId),
+            authAdmin(userId),
+        ]);
 
         if (!isSeller) {
             return NextResponse.json({ success: false, message: 'not authorized' });
+        }
+
+        await connectDB();
+
+        if (!isAdmin) {
+            const seller = await User.findById(userId).lean();
+            const access = getSellerAccessState(seller);
+
+            if (!access.hasAccess) {
+                return NextResponse.json({
+                    success: false,
+                    message: access.reason || 'Seller access is inactive. Renew subscription to add products.',
+                }, { status: 403 });
+            }
         }
 
         const formData = await request.formData();
@@ -62,7 +82,6 @@ export async function POST(request) {
 
         const image = result.map((r) => r.secure_url);
 
-        await connectDB();
         const newProduct = await Product.create({
             userId,
             name,

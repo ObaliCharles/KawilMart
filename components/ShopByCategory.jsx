@@ -29,25 +29,25 @@ const ShopByCategory = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid gap-2 min-[430px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-center">
           {quickCategories.map((cat) => (
             <Link
               key={cat.value}
               href={cat.href}
               onClick={() => setIsRouteLoading(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+              className="inline-flex min-w-0 items-center justify-between gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 sm:justify-start"
             >
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-sm shadow-sm">
                 {cat.icon}
               </span>
-              {cat.label}
+              <span className="truncate">{cat.label}</span>
             </Link>
           ))}
 
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
-            className="inline-flex items-center gap-2 rounded-full border border-gray-900 px-4 py-2 text-xs font-semibold text-gray-900 transition hover:bg-gray-900 hover:text-white"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-900 px-4 py-2 text-xs font-semibold text-gray-900 transition hover:bg-gray-900 hover:text-white sm:justify-start"
           >
             {isExpanded ? "Hide categories" : "Browse all categories"}
             <span className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}>⌄</span>
@@ -69,7 +69,7 @@ const ShopByCategory = () => {
                   <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#f5f2ed] text-lg">
                     {cat.icon}
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-900 transition group-hover:text-orange-700">
                       {cat.label}
                     </p>

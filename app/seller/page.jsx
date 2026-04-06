@@ -174,19 +174,22 @@ const AddProductInner = () => {
       return;
     }
 
-    if (isEditMode) {
-      setLoadingDashboard(false);
-      return;
-    }
-
     fetchDashboardStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, user, isEditMode]);
+
+  const sellerAccess = dashboardStats?.subscription?.access;
+  const sellerHasStoreAccess = sellerAccess?.hasAccess ?? true;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (isSubmitting) {
+      return;
+    }
+
+    if (!sellerHasStoreAccess) {
+      toast.error(sellerAccess?.reason || 'Selling access is currently disabled. Contact support or renew your subscription.');
       return;
     }
 
@@ -390,6 +393,26 @@ const AddProductInner = () => {
                   color="bg-yellow-50"
                 />
               </section>
+
+              {!sellerHasStoreAccess ? (
+                <section className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm sm:p-6">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-red-500">Selling Access Disabled</p>
+                      <h2 className="mt-2 text-lg font-semibold text-gray-900">Your storefront is currently locked</h2>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
+                        {sellerAccess?.reason || 'Your subscription needs admin attention before you can publish or update products again.'}
+                      </p>
+                    </div>
+                    <Link
+                      href="/inbox?tab=support"
+                      className="inline-flex items-center justify-center rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-black"
+                    >
+                      Contact Support
+                    </Link>
+                  </div>
+                </section>
+              ) : null}
 
               <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
                 <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
@@ -706,6 +729,12 @@ const AddProductInner = () => {
                 ) : null}
               </div>
 
+              {!sellerHasStoreAccess ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+                  {sellerAccess?.reason || 'Selling access is inactive.'} Product publishing and editing are blocked until access is restored.
+                </div>
+              ) : null}
+
               <div>
                 <p className="text-base font-medium text-gray-900">Product Images</p>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -865,9 +894,11 @@ const AddProductInner = () => {
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !sellerHasStoreAccess}
                   className={`rounded-xl px-8 py-3 text-sm font-medium text-white transition ${
-                    isSubmitting ? 'cursor-wait bg-orange-400' : 'bg-orange-600 hover:bg-orange-700'
+                    isSubmitting || !sellerHasStoreAccess
+                      ? 'cursor-not-allowed bg-orange-300'
+                      : 'bg-orange-600 hover:bg-orange-700'
                   }`}
                 >
                   {isSubmitting ? (isEditMode ? 'Updating...' : 'Adding...') : (isEditMode ? 'Update Product' : 'Add Product')}

@@ -6,7 +6,7 @@ import Address from "@/models/Address";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import User from "@/models/User";
-import { buildSellerInvoiceSnapshot } from "@/lib/sellerBilling";
+import { buildSellerInvoiceSnapshot, getSellerAccessState, getSellerSubscriptionSnapshot } from "@/lib/sellerBilling";
 import { getSellerRiskSummary } from "@/lib/orderRisk";
 import { ORDER_STATUSES, normalizeOrderStatus } from "@/lib/orderLifecycle";
 
@@ -155,6 +155,8 @@ export async function GET(request) {
       orders: normalizedOrders,
     });
     const risk = getSellerRiskSummary(normalizedOrders);
+    const subscription = getSellerSubscriptionSnapshot(seller);
+    const access = getSellerAccessState(seller);
 
     return NextResponse.json({
       success: true,
@@ -181,9 +183,21 @@ export async function GET(request) {
         billing,
         risk,
         subscription: {
-          plan: seller?.sellerSubscriptionPlan || "standard",
-          status: seller?.sellerSubscriptionStatus || "active",
-          monthlyFee: Number(seller?.sellerSubscriptionFee) || 0,
+          ...subscription,
+          access,
+        },
+        verification: {
+          isVerified: Boolean(seller?.isVerified),
+          badgeLabel: seller?.sellerBadgeLabel || "",
+          badgeTone: seller?.sellerBadgeTone || "emerald",
+        },
+        storeProfile: {
+          businessName: seller?.businessName || "",
+          businessLocation: seller?.businessLocation || "",
+          sellerDescription: seller?.sellerDescription || "",
+          supportEmail: seller?.sellerSupportEmail || "",
+          whatsappNumber: seller?.sellerWhatsappNumber || "",
+          supportPriority: seller?.sellerSupportPriority || "standard",
         },
         highlights: {
           bestSellingProduct: topProducts[0]?.name || null,

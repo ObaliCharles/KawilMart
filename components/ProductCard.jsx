@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useAppContext } from '@/context/AppContext';
 import ProductRating from './ProductRating';
 import ProductActivityChips from './ProductActivityChips';
+import SellerTrustBadge from './SellerTrustBadge';
 
 const getPromotionBadge = (product) => {
     if (product.isFlashDeal || product.promotionType === 'flash_deal') {
@@ -143,6 +144,7 @@ const ProductCard = ({ product }) => {
               <span>📍</span>
               <span className="truncate">{location}</span>
             </div>
+            <SellerTrustBadge sellerProfile={product.sellerProfile} className="mt-1" />
 
             <ProductRating product={product} />
 

@@ -11,6 +11,7 @@ import React from "react";
 import ProductRating from "@/components/ProductRating";
 import { ProductDetailSkeleton } from "@/components/PageSkeletons";
 import ProductActivityChips from "@/components/ProductActivityChips";
+import SellerTrustBadge from "@/components/SellerTrustBadge";
 import { getLocationLabel, getProductActivitySnapshot, sortProductsForLiveShowcase } from "@/lib/liveCommerce";
 
 const Product = () => {
@@ -169,7 +170,10 @@ const Product = () => {
                                 <tr>
                                     <td className="text-gray-600 font-medium">Store</td>
                                     <td className="text-gray-800/50 ">
-                                        {productData.sellerProfile?.name || 'Marketplace seller'}
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span>{productData.sellerProfile?.name || 'Marketplace seller'}</span>
+                                            <SellerTrustBadge sellerProfile={productData.sellerProfile} />
+                                        </div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -227,7 +231,11 @@ const Product = () => {
                     <div className="mt-8 rounded-lg bg-blue-50 p-4">
                         <h3 className="text-lg font-medium text-gray-800 mb-3">Seller Information</h3>
                         <div className="space-y-2 text-sm">
-                            <p><strong>Store:</strong> {productData.sellerProfile?.name || 'Seller'}</p>
+                            <p>
+                                <strong>Store:</strong>{" "}
+                                {productData.sellerProfile?.name || 'Seller'}
+                            </p>
+                            <SellerTrustBadge sellerProfile={productData.sellerProfile} />
                             <p><strong>Business Location:</strong> {productData.sellerProfile?.location || productData.sellerLocation || 'Location pending'}</p>
                             <p><strong>Product Location:</strong> {productData.location || productData.sellerLocation || 'Location pending'}</p>
                             <p>

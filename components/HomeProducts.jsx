@@ -21,26 +21,26 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
   const panelHref = buildCategoryHref(section.value);
 
   return (
-    <div className="pattern-category-sketch-soft col-span-full overflow-hidden rounded-[2rem] border border-gray-200">
+    <div className="pattern-category-sketch-soft col-span-full overflow-hidden rounded-[1.75rem] border border-gray-200 sm:rounded-[2rem]">
       <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className={`flex flex-col justify-between border-b border-white/70 p-6 lg:border-b-0 ${reverse ? "lg:order-2 lg:border-l lg:border-r-0 lg:border-white/70" : "lg:border-r lg:border-white/70"}`}>
+        <div className={`flex flex-col justify-between border-b border-white/70 p-4 sm:p-6 lg:border-b-0 ${reverse ? "lg:order-2 lg:border-l lg:border-r-0 lg:border-white/70" : "lg:border-r lg:border-white/70"}`}>
           <div>
-            <span className="inline-flex items-center gap-3 rounded-full bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 shadow-sm">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#f3eee6] text-base">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500 shadow-sm sm:gap-3 sm:py-2 sm:text-xs">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#f3eee6] text-sm sm:text-base">
                 {section.icon}
               </span>
               Category focus
             </span>
-            <h3 className="mt-5 text-3xl font-semibold tracking-tight text-gray-900">
+            <h3 className="mt-4 text-2xl font-semibold tracking-tight text-gray-900 sm:mt-5 sm:text-3xl">
               {section.label}
             </h3>
-            <p className="mt-3 max-w-xl text-sm leading-7 text-gray-600">
+            <p className="mt-2.5 max-w-xl text-sm leading-6 text-gray-600 sm:mt-3 sm:leading-7">
               {section.description}
             </p>
           </div>
 
-          <div className="mt-8 space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
+          <div className="mt-6 space-y-4 sm:mt-8">
+            <div className="grid gap-3 min-[480px]:grid-cols-2 xl:grid-cols-3">
               <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Live offers</p>
                 <p className="mt-2 text-lg font-semibold text-gray-900">{section.productCount}</p>
@@ -59,7 +59,7 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
                 Browse more categories
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid gap-2 min-[430px]:grid-cols-2 sm:flex sm:flex-wrap">
                 {quickCategories.map((category) => {
                   const href = buildCategoryHref(category.value);
 
@@ -70,10 +70,10 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
                       onClick={() => navigate(href)}
                       onMouseEnter={() => prefetchRoute(href)}
                       onFocus={() => prefetchRoute(href)}
-                      className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+                      className="inline-flex min-w-0 items-center justify-between gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 sm:justify-start"
                     >
                       <span>{category.icon}</span>
-                      {category.label}
+                      <span className="truncate">{category.label}</span>
                     </button>
                   );
                 })}
@@ -82,10 +82,12 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
           </div>
         </div>
 
-        <div className={`p-5 sm:p-6 ${reverse ? "lg:order-1" : ""}`}>
+        <div className={`p-4 sm:p-6 ${reverse ? "lg:order-1" : ""}`}>
           <div className="grid gap-3">
             {section.products.map((product, index) => {
               const productHref = `/product/${product._id}`;
+              const mobileImageColumn = index === 0 ? "grid-cols-[96px_minmax(0,1fr)]" : "grid-cols-[84px_minmax(0,1fr)]";
+              const desktopImageColumn = index === 0 ? "sm:grid-cols-[132px_minmax(0,1fr)]" : "sm:grid-cols-[92px_minmax(0,1fr)]";
 
               return (
                 <button
@@ -94,33 +96,33 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
                   onClick={() => navigate(productHref)}
                   onMouseEnter={() => prefetchRoute(productHref)}
                   onFocus={() => prefetchRoute(productHref)}
-                  className={`grid items-center gap-4 rounded-[1.6rem] border border-white/90 bg-white/95 p-3 text-left backdrop-blur-[2px] transition hover:border-orange-300 hover:shadow-sm ${index === 0 ? "sm:grid-cols-[132px_1fr]" : "sm:grid-cols-[92px_1fr]"}`}
+                  className={`grid min-w-0 items-center gap-3 rounded-[1.45rem] border border-white/90 bg-white/95 p-3 text-left backdrop-blur-[2px] transition hover:border-orange-300 hover:shadow-sm sm:gap-4 ${mobileImageColumn} ${desktopImageColumn}`}
                 >
-                  <div className={`overflow-hidden rounded-[1.2rem] bg-[#f5f5f3] ${index === 0 ? "h-32" : "h-24"}`}>
+                  <div className="aspect-square overflow-hidden rounded-[1.15rem] bg-[#f5f5f3]">
                     <Image
                       src={product.image[0]}
                       alt={product.name}
                       width={260}
                       height={260}
-                      className="h-full w-full object-cover"
-                      sizes={index === 0 ? "(max-width: 640px) 100vw, 132px" : "(max-width: 640px) 100vw, 92px"}
+                      className="h-full w-full object-contain p-2.5 sm:object-cover sm:p-0"
+                      sizes={index === 0 ? "(max-width: 640px) 96px, 132px" : "(max-width: 640px) 84px, 92px"}
                     />
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
                       {getCategoryMeta(product.category).label}
                     </p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-gray-900">
+                    <p className="mt-1.5 text-sm font-semibold leading-5 text-gray-900 sm:mt-2 sm:leading-6">
                       {product.name}
                     </p>
-                    <p className="mt-2 text-sm text-gray-500">
+                    <p className="mt-1.5 text-xs leading-5 text-gray-500 sm:mt-2 sm:text-sm">
                       {product.description}
                     </p>
                     <div className="mt-3 flex items-center justify-between gap-3">
                       <span className="text-sm font-semibold text-orange-700">
                         {formatCurrency(product.offerPrice)}
                       </span>
-                      <span className="text-xs font-medium text-gray-500">View item →</span>
+                      <span className="hidden text-xs font-medium text-gray-500 sm:inline">View item →</span>
                     </div>
                   </div>
                 </button>
@@ -134,7 +136,7 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
               onClick={() => navigate(panelHref)}
               onMouseEnter={() => prefetchRoute(panelHref)}
               onFocus={() => prefetchRoute(panelHref)}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-900 px-4 py-2 text-sm font-semibold text-gray-900 transition hover:bg-gray-900 hover:text-white"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-900 px-4 py-2 text-sm font-semibold text-gray-900 transition hover:bg-gray-900 hover:text-white sm:w-auto"
             >
               Explore {section.label}
               <span>→</span>

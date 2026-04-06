@@ -4,6 +4,7 @@ import React from "react";
 import Image from "next/image";
 import { useAppContext } from "@/context/AppContext";
 import { getCategoryMeta } from "@/lib/marketplaceCategories";
+import SellerTrustBadge from "@/components/SellerTrustBadge";
 
 const categoryPriority = (product) => {
   if (product.isFlashDeal || product.promotionType === "flash_deal") return 0;
@@ -132,7 +133,10 @@ const HomeOfferCollections = () => {
                     <span className="inline-flex rounded-full bg-[#f6f3ee] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
                       {card.badge}
                     </span>
-                    <p className="mt-4 text-2xl font-semibold text-gray-900">{card.title}</p>
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <p className="text-2xl font-semibold text-gray-900">{card.title}</p>
+                      <SellerTrustBadge sellerProfile={card.heroProduct?.sellerProfile} />
+                    </div>
                     <p className="mt-2 text-sm leading-6 text-gray-600">{card.description}</p>
                     <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-gray-400">
                       {card.location}

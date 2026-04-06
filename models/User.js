@@ -12,6 +12,28 @@ const sellerReviewSchema = new mongoose.Schema({
     date: { type: Date, default: Date.now }
 }, { _id: false });
 
+const notificationSchema = new mongoose.Schema({
+    type: { type: String, enum: ['message', 'order', 'system', 'support'], default: 'system' },
+    title: { type: String, default: "" },
+    message: { type: String, default: "" },
+    read: { type: Boolean, default: false },
+    date: { type: Date, default: Date.now }
+});
+
+const messageSchema = new mongoose.Schema({
+    messageId: { type: String, default: "" },
+    from: { type: String, default: "" },
+    to: { type: String, default: "" },
+    subject: { type: String, default: "" },
+    content: { type: String, default: "" },
+    read: { type: Boolean, default: false },
+    date: { type: Date, default: Date.now },
+    channel: { type: String, enum: ['direct', 'support'], default: 'direct' },
+    conversationKey: { type: String, default: "" },
+    senderLabel: { type: String, default: "" },
+    senderRole: { type: String, default: "" },
+});
+
 const userSchema = new mongoose.Schema({
     _id: { type: String, required: true },
     name: { type: String, required: true },
@@ -28,9 +50,25 @@ const userSchema = new mongoose.Schema({
     phoneNumber: { type: String },
     businessLicense: { type: String },
     taxId: { type: String },
+    sellerDescription: { type: String, default: "" },
+    sellerSupportEmail: { type: String, default: "" },
+    sellerWhatsappNumber: { type: String, default: "" },
+    sellerLocationCity: { type: String, default: "" },
+    sellerLocationRegion: { type: String, default: "" },
+    sellerLocationCountry: { type: String, default: "Uganda" },
+    sellerBadgeLabel: { type: String, default: "" },
+    sellerBadgeTone: { type: String, enum: ['emerald', 'sky', 'amber', 'violet', 'slate'], default: 'emerald' },
+    sellerBadgeGrantedAt: { type: Date, default: null },
+    sellerBadgeGrantedBy: { type: String, default: "" },
+    sellerSupportPriority: { type: String, enum: ['standard', 'priority', 'vip'], default: 'standard' },
     sellerSubscriptionPlan: { type: String, default: "standard" },
-    sellerSubscriptionStatus: { type: String, enum: ['active', 'paused', 'overdue'], default: 'active' },
+    sellerSubscriptionStatus: { type: String, enum: ['active', 'paused', 'overdue', 'trial', 'cancelled'], default: 'active' },
     sellerSubscriptionFee: { type: Number, default: 0 },
+    sellerSubscriptionStartedAt: { type: Date, default: null },
+    sellerSubscriptionLastPaidAt: { type: Date, default: null },
+    sellerSubscriptionNextBillingDate: { type: Date, default: null },
+    sellerAccessUntil: { type: Date, default: null },
+    sellerBillingNotes: { type: String, default: "" },
     sellerReviews: { type: [sellerReviewSchema], default: [] },
     sellerRatingSummary: {
         totalReviews: { type: Number, default: 0 },
@@ -40,34 +78,28 @@ const userSchema = new mongoose.Schema({
         overall: { type: Number, default: 0 },
     },
     // Rider fields
+    riderBaseLocation: { type: String, default: "" },
     vehicleType: { type: String, enum: ['motorcycle', 'bicycle', 'car'] },
     licensePlate: { type: String },
     driversLicense: { type: String },
     riderAvailability: { type: String, enum: ['available', 'busy'], default: 'available' },
     riderSubscriptionPlan: { type: String, default: "standard" },
-    riderSubscriptionStatus: { type: String, enum: ['active', 'paused', 'overdue'], default: 'active' },
+    riderSubscriptionStatus: { type: String, enum: ['active', 'paused', 'overdue', 'trial', 'cancelled'], default: 'active' },
     riderSubscriptionFee: { type: Number, default: 0 },
+    riderSubscriptionStartedAt: { type: Date, default: null },
+    riderSubscriptionLastPaidAt: { type: Date, default: null },
+    riderSubscriptionNextBillingDate: { type: Date, default: null },
+    riderAccessUntil: { type: Date, default: null },
+    riderBillingNotes: { type: String, default: "" },
     // Common fields
     isVerified: { type: Boolean, default: false },
     verificationDocuments: [{ type: String }],
     followedStores: { type: [String], default: [] },
     storeFollowerIds: { type: [String], default: [] },
     storeFollowersCount: { type: Number, default: 0 },
-    notifications: [{
-        type: { type: String, enum: ['message', 'order', 'system'] },
-        title: { type: String },
-        message: { type: String },
-        read: { type: Boolean, default: false },
-        date: { type: Date, default: Date.now }
-    }],
-    messages: [{
-        from: { type: String }, // userId of sender
-        to: { type: String }, // userId of receiver
-        subject: { type: String },
-        content: { type: String },
-        read: { type: Boolean, default: false },
-        date: { type: Date, default: Date.now }
-    }]
+    verificationNotes: { type: String, default: "" },
+    notifications: { type: [notificationSchema], default: [] },
+    messages: { type: [messageSchema], default: [] }
 }, { minimize: false })
 
 const User = mongoose.models.user || mongoose.model('user', userSchema)
