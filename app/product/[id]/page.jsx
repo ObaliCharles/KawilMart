@@ -104,10 +104,11 @@ const Product = () => {
                     <div className="mb-4 overflow-hidden rounded-lg bg-gray-500/10">
                         <Image
                             src={mainImage || productData.image[0]}
-                            alt="alt"
+                            alt={productData.name}
                             className="aspect-square w-full object-cover mix-blend-multiply"
                             width={1280}
                             height={720}
+                            sizes="(max-width: 768px) 100vw, 50vw"
                         />
                     </div>
 
@@ -120,10 +121,11 @@ const Product = () => {
                             >
                                 <Image
                                     src={image}
-                                    alt="alt"
+                                    alt={`${productData.name} preview ${index + 1}`}
                                     className="aspect-square w-full object-cover mix-blend-multiply"
                                     width={1280}
                                     height={720}
+                                    sizes="(max-width: 768px) 22vw, 10vw"
                                 />
                             </div>
 
@@ -154,21 +156,27 @@ const Product = () => {
                     </p>
                     <p className="mt-6 text-2xl font-medium sm:text-3xl">
                         {formatCurrency(productData.offerPrice)}
-                        <span className="text-base font-normal text-gray-800/60 line-through ml-2">
-                            {formatCurrency(productData.price)}
-                        </span>
+                        {productActivity?.hasDiscount ? (
+                            <span className="ml-2 text-base font-normal text-gray-800/60 line-through">
+                                {formatCurrency(productData.price)}
+                            </span>
+                        ) : null}
                     </p>
                     <hr className="bg-gray-600 my-6" />
                     <div className="overflow-x-auto">
-                        <table className="table-auto border-collapse w-full max-w-72">
+                        <table className="table-auto border-collapse w-full max-w-md">
                             <tbody>
                                 <tr>
-                                    <td className="text-gray-600 font-medium">Brand</td>
-                                    <td className="text-gray-800/50 ">Generic</td>
+                                    <td className="text-gray-600 font-medium">Store</td>
+                                    <td className="text-gray-800/50 ">
+                                        {productData.sellerProfile?.name || 'Marketplace seller'}
+                                    </td>
                                 </tr>
                                 <tr>
-                                    <td className="text-gray-600 font-medium">Color</td>
-                                    <td className="text-gray-800/50 ">Multi</td>
+                                    <td className="text-gray-600 font-medium">Business area</td>
+                                    <td className="text-gray-800/50 ">
+                                        {productData.sellerProfile?.location || productData.sellerLocation || 'Location pending'}
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td className="text-gray-600 font-medium">Category</td>
@@ -177,9 +185,9 @@ const Product = () => {
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td className="text-gray-600 font-medium">Location</td>
+                                    <td className="text-gray-600 font-medium">Item location</td>
                                     <td className="text-gray-800/50">
-                                        {productData.location}
+                                        {productData.location || productData.sellerLocation || 'Location pending'}
                                     </td>
                                 </tr>
                             </tbody>
@@ -189,16 +197,28 @@ const Product = () => {
                     {productActivity ? (
                         <div className="mt-6 grid gap-3 sm:grid-cols-3">
                             <div className="rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500">Viewing now</p>
-                                <p className="mt-1 text-lg font-semibold text-gray-900">{productActivity.viewersNow}</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500">You save</p>
+                                <p className="mt-1 text-lg font-semibold text-gray-900">
+                                    {productActivity.hasDiscount ? formatCurrency(productActivity.savingsAmount) : 'Current best price'}
+                                </p>
                             </div>
-                            <div className="rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500">Sold today</p>
-                                <p className="mt-1 text-lg font-semibold text-gray-900">{productActivity.soldToday}</p>
+                            <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-600">Buyer feedback</p>
+                                <p className="mt-1 text-lg font-semibold text-gray-900">
+                                    {productActivity.hasRating
+                                        ? `${productActivity.displayRating}/5`
+                                        : `${productActivity.likesCount} like${productActivity.likesCount === 1 ? '' : 's'}`}
+                                </p>
                             </div>
-                            <div className="rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500">Local trend</p>
-                                <p className="mt-1 text-lg font-semibold text-gray-900">{productActivity.localTrend}</p>
+                            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600">
+                                    {productActivity.flashDealCountdownLabel ? 'Deal window' : 'Available in'}
+                                </p>
+                                <p className="mt-1 text-lg font-semibold text-gray-900">
+                                    {productActivity.flashDealCountdownLabel
+                                        ? `Ends in ${productActivity.flashDealCountdownLabel}`
+                                        : productActivity.localTrend}
+                                </p>
                             </div>
                         </div>
                     ) : null}
@@ -207,10 +227,19 @@ const Product = () => {
                     <div className="mt-8 rounded-lg bg-blue-50 p-4">
                         <h3 className="text-lg font-medium text-gray-800 mb-3">Seller Information</h3>
                         <div className="space-y-2 text-sm">
-                            <p><strong>Contact:</strong> {productData.sellerContact}</p>
-                            <p><strong>Business Location:</strong> {productData.sellerLocation}</p>
-                            <p><strong>Product Location:</strong> {productData.location}</p>
+                            <p><strong>Store:</strong> {productData.sellerProfile?.name || 'Seller'}</p>
+                            <p><strong>Business Location:</strong> {productData.sellerProfile?.location || productData.sellerLocation || 'Location pending'}</p>
+                            <p><strong>Product Location:</strong> {productData.location || productData.sellerLocation || 'Location pending'}</p>
+                            <p>
+                                <strong>Seller Rating:</strong>{" "}
+                                {productData.sellerProfile?.ratingSummary?.totalReviews
+                                    ? `${productData.sellerProfile?.ratingSummary?.overall || 0} / 5 (${productData.sellerProfile?.ratingSummary?.totalReviews || 0} reviews)`
+                                    : 'No seller reviews yet'}
+                            </p>
                             <p><strong>Trending near:</strong> {getLocationLabel(productData.sellerLocation || productData.location)}</p>
+                            <p className="rounded-xl bg-white/70 px-3 py-2 text-xs text-blue-800">
+                                Seller contact unlocks only after you place an order and the seller accepts it in KawilMart.
+                            </p>
                         </div>
                     </div>
 

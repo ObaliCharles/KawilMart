@@ -35,23 +35,34 @@ export async function POST(request) {
             return NextResponse.json({ success: false, message: "Not authenticated" })
         }
 
-        const { notificationId } = await request.json()
+        const { notificationId, markAllRead = false } = await request.json()
 
         await connectDB()
 
-        // Mark notification as read
-        await User.findByIdAndUpdate(userId, {
-            $set: { 'notifications.$[elem].read': true }
-        }, {
-            arrayFilters: [{ 'elem._id': notificationId }]
-        })
+        if (markAllRead) {
+            await User.findByIdAndUpdate(userId, {
+                $set: { 'notifications.$[elem].read': true }
+            }, {
+                arrayFilters: [{ 'elem.read': false }]
+            })
+        } else {
+            if (!notificationId) {
+                return NextResponse.json({ success: false, message: "Notification ID is required" }, { status: 400 })
+            }
+
+            await User.findByIdAndUpdate(userId, {
+                $set: { 'notifications.$[elem].read': true }
+            }, {
+                arrayFilters: [{ 'elem._id': notificationId }]
+            })
+        }
 
         const updatedUser = await User.findById(userId).select('notifications')
         const unreadCount = (updatedUser?.notifications || []).filter((notification) => !notification.read).length
 
         return NextResponse.json({
             success: true,
-            message: "Notification marked as read",
+            message: markAllRead ? "All inbox messages marked as read" : "Inbox message marked as read",
             unreadCount,
         })
 

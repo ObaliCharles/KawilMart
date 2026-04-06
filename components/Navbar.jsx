@@ -132,7 +132,7 @@ const Navbar = () => {
   }, [clerkReady, refreshUnreadNotifications, user]);
 
   useEffect(() => {
-    const routes = ['/', '/all-products', '/cart', '/my-orders', '/notifications'];
+    const routes = ['/', '/all-products', '/cart', '/my-orders', '/inbox'];
     if (showSeller) routes.push('/seller');
     if (showAdmin) routes.push('/admin');
     if (showRider) routes.push('/dashboard/rider');
@@ -173,7 +173,7 @@ const Navbar = () => {
           {includeMobileLinks ? <UserButton.Link label="Products" labelIcon={<BoxIcon />} href="/all-products" /> : null}
           <UserButton.Link label="Cart" labelIcon={<CartIcon />} href="/cart" />
           <UserButton.Link label="My Orders" labelIcon={<BagIcon />} href="/my-orders" />
-          <UserButton.Link label="Notifications" labelIcon={<NotificationIcon />} href="/notifications" />
+          <UserButton.Link label="Inbox" labelIcon={<NotificationIcon />} href="/inbox" />
         </UserButton.MenuItems>
       </UserButton>
     </div>

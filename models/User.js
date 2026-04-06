@@ -18,6 +18,10 @@ const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     imageUrl: { type: String, required: true },
     cartItems: {type: Object, default: {} },
+    accountStatus: { type: String, enum: ['active', 'pending', 'suspended'], default: 'active' },
+    governmentIdNumber: { type: String, default: "" },
+    legalStatus: { type: String, enum: ['pending', 'approved', 'flagged'], default: 'pending' },
+    legalNotes: { type: String, default: "" },
     // Seller fields
     businessName: { type: String },
     businessLocation: { type: String },
@@ -40,9 +44,15 @@ const userSchema = new mongoose.Schema({
     licensePlate: { type: String },
     driversLicense: { type: String },
     riderAvailability: { type: String, enum: ['available', 'busy'], default: 'available' },
+    riderSubscriptionPlan: { type: String, default: "standard" },
+    riderSubscriptionStatus: { type: String, enum: ['active', 'paused', 'overdue'], default: 'active' },
+    riderSubscriptionFee: { type: Number, default: 0 },
     // Common fields
     isVerified: { type: Boolean, default: false },
     verificationDocuments: [{ type: String }],
+    followedStores: { type: [String], default: [] },
+    storeFollowerIds: { type: [String], default: [] },
+    storeFollowersCount: { type: Number, default: 0 },
     notifications: [{
         type: { type: String, enum: ['message', 'order', 'system'] },
         title: { type: String },

@@ -4,21 +4,7 @@ import { useAppContext } from '@/context/AppContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { OrdersManagementPageSkeleton } from '@/components/dashboard/DashboardSkeletons';
-import { ORDER_STATUS_SEQUENCE } from '@/lib/orderTracking';
-
-const statusOptions = ORDER_STATUS_SEQUENCE;
-
-const statusColors = {
-    'Order Placed': 'bg-blue-100 text-blue-700',
-    'Confirmed': 'bg-sky-100 text-sky-700',
-    'Preparing': 'bg-amber-100 text-amber-700',
-    'Processing': 'bg-yellow-100 text-yellow-700',
-    'Ready for Delivery': 'bg-cyan-100 text-cyan-700',
-    'Shipped': 'bg-purple-100 text-purple-700',
-    'Out for Delivery': 'bg-indigo-100 text-indigo-700',
-    'Delivered': 'bg-green-100 text-green-700',
-    'Cancelled': 'bg-red-100 text-red-700',
-};
+import { getOrderStatusBadgeClass, getOrderStatusDisplay } from '@/lib/orderUi';
 
 export default function AdminOrders() {
     const { getToken, user, authReady, formatCurrency } = useAppContext();
@@ -100,7 +86,7 @@ export default function AdminOrders() {
 
             {/* Status Filter Tabs */}
             <div className="flex flex-wrap gap-2">
-                {['All', ...statusOptions].map(s => (
+                {['All', ...new Set(orders.map((order) => order.status))].map(s => (
                     <button
                         key={s}
                         onClick={() => setFilterStatus(s)}
@@ -110,7 +96,7 @@ export default function AdminOrders() {
                                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
                         }`}
                     >
-                        {s}
+                        {s === 'All' ? s : getOrderStatusDisplay(s)}
                         {s !== 'All' && (
                             <span className="ml-1.5 text-xs opacity-75">
                                 ({orders.filter(o => o.status === s).length})
@@ -148,6 +134,15 @@ export default function AdminOrders() {
                                     <td className="px-5 py-4">
                                         <p className="font-mono text-xs text-gray-500">#{String(order._id).slice(-8).toUpperCase()}</p>
                                         <p className="text-xs text-gray-400 mt-0.5">User: {String(order.userId).slice(-6)}</p>
+                                        {order.riskFlags?.length > 0 && (
+                                            <div className="mt-2 flex flex-wrap gap-1">
+                                                {order.riskFlags.map((flag) => (
+                                                    <span key={`${order._id}-${flag}`} className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-medium text-red-700">
+                                                        {flag.replace(/_/g, ' ')}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-5 py-4 max-w-[200px]">
                                         {order.items.map((item, i) => (
@@ -174,29 +169,40 @@ export default function AdminOrders() {
                                     <td className="px-5 py-4">
                                         <select
                                             value={order.riderId || ''}
-                                            disabled={updatingId === order._id}
+                                            disabled={updatingId === order._id || (!order.actions?.canAssignRider && !order.riderId)}
                                             onChange={(e) => updateOrder(order._id, { riderId: e.target.value })}
                                             className="min-w-[150px] text-xs font-medium px-2 py-1.5 rounded-lg border border-gray-200 outline-none cursor-pointer bg-white md:min-w-[170px]"
                                         >
                                             <option value="">Unassigned</option>
                                             {riders.map((rider) => (
-                                                <option key={rider.id} value={rider.id}>
-                                                    {rider.name || rider.email}
+                                                <option
+                                                    key={rider.id}
+                                                    value={rider.id}
+                                                    disabled={rider.riderAvailability === 'busy' && rider.id !== order.riderId}
+                                                >
+                                                    {(rider.name || rider.email)}{rider.riderAvailability === 'busy' && rider.id !== order.riderId ? ' · Busy' : ''}
                                                 </option>
                                             ))}
                                         </select>
                                     </td>
                                     <td className="px-5 py-4">
-                                        <select
-                                            value={order.status}
-                                            disabled={updatingId === order._id}
-                                            onChange={(e) => updateOrder(order._id, { status: e.target.value })}
-                                            className={`text-xs font-medium px-2 py-1.5 rounded-lg border-0 outline-none cursor-pointer ${statusColors[order.status] || 'bg-gray-100'}`}
-                                        >
-                                            {statusOptions.map(s => (
-                                                <option key={s} value={s}>{s}</option>
-                                            ))}
-                                        </select>
+                                        <div className="space-y-2">
+                                            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getOrderStatusBadgeClass(order.status)}`}>
+                                                {getOrderStatusDisplay(order.status)}
+                                            </span>
+                                            <select
+                                                value={order.status}
+                                                disabled={updatingId === order._id}
+                                                onChange={(e) => updateOrder(order._id, { status: e.target.value })}
+                                                className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium outline-none cursor-pointer"
+                                            >
+                                                {[...new Set([order.status, ...(order.actions?.allowedNextStatuses || [])])].map((statusOption) => (
+                                                    <option key={statusOption} value={statusOption}>
+                                                        {getOrderStatusDisplay(statusOption)}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

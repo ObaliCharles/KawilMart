@@ -9,7 +9,6 @@ import {
   buildCategoryHref,
   categoryMatchesSelection,
   getCategoryMeta,
-  getCategoryMonogram,
   homeCategoryValues,
   homeOfferCollectionValues,
 } from "@/lib/marketplaceCategories";
@@ -27,10 +26,10 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
         <div className={`flex flex-col justify-between border-b border-white/70 p-6 lg:border-b-0 ${reverse ? "lg:order-2 lg:border-l lg:border-r-0 lg:border-white/70" : "lg:border-r lg:border-white/70"}`}>
           <div>
             <span className="inline-flex items-center gap-3 rounded-full bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 shadow-sm">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#f3eee6] text-[11px] text-gray-800">
-                {section.monogram}
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#f3eee6] text-base">
+                {section.icon}
               </span>
-              Category edit
+              Category focus
             </span>
             <h3 className="mt-5 text-3xl font-semibold tracking-tight text-gray-900">
               {section.label}
@@ -71,8 +70,9 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
                       onClick={() => navigate(href)}
                       onMouseEnter={() => prefetchRoute(href)}
                       onFocus={() => prefetchRoute(href)}
-                      className="rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+                      className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
                     >
+                      <span>{category.icon}</span>
                       {category.label}
                     </button>
                   );
@@ -103,6 +103,7 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
                       width={260}
                       height={260}
                       className="h-full w-full object-cover"
+                      sizes={index === 0 ? "(max-width: 640px) 100vw, 132px" : "(max-width: 640px) 100vw, 92px"}
                     />
                   </div>
                   <div className="min-w-0">
@@ -167,7 +168,7 @@ const HomeProducts = () => {
         value: categoryValue,
         label: meta.label,
         description: meta.description,
-        monogram: getCategoryMonogram(categoryValue),
+        icon: meta.icon,
         leadProduct: categoryProducts[0],
         products: categoryProducts.slice(0, 4),
         lowestOffer: Math.min(...categoryProducts.map((product) => Number(product.offerPrice) || 0)),
@@ -187,7 +188,7 @@ const HomeProducts = () => {
       <div className="w-full">
         <p className="text-2xl font-semibold text-gray-900">Hot right now</p>
         <p className="mt-1 text-sm text-gray-500">
-          A live mix of fast-moving favorites, fresh arrivals, and flash deals rotating through the homepage.
+          Current picks pulled from active flash deals, recent listings, and highly rated products already in your catalog.
         </p>
       </div>
 
@@ -203,6 +204,7 @@ const HomeProducts = () => {
             .map((categoryValue) => ({
               value: categoryValue,
               label: getCategoryMeta(categoryValue).label,
+              icon: getCategoryMeta(categoryValue).icon,
             }))
 
           return (

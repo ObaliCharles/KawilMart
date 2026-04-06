@@ -8,118 +8,100 @@ import Address from "@/models/Address";
 import User from "@/models/User";
 import { getUserRole } from "@/lib/userRoleCache";
 import {
+    createRiderAssignmentTrackingEvent,
     createSellerStatusNotification,
     createStatusNotification,
     createStatusTrackingEvent,
-    ensureTrackingEvents,
-    serializeTrackingEvents,
 } from "@/lib/orderTracking";
 import { notifyUsers } from "@/lib/notifyUsers";
+import { serializeRiderDelivery } from "@/lib/orderSerialization";
+import {
+    ACTIVE_ORDER_STATUSES,
+    ORDER_STATUSES,
+    RIDER_ASSIGNMENT_STATUSES,
+    normalizeOrderStatus,
+    normalizeRiderAssignmentStatus,
+} from "@/lib/orderLifecycle";
+import {
+    applyOrderStatusTransition,
+    formatShortOrderId,
+    respondToRiderAssignment,
+} from "@/lib/orderWorkflow";
 
-const formatDropLocation = (address) => {
-    if (!address) {
-        return "";
-    }
-
-    return [address.area, address.city, address.state].filter(Boolean).join(", ");
-};
-
-const sanitizeItem = (item) => ({
-    quantity: item.quantity,
-    price: item.price,
-    product: item.product
-        ? {
-            _id: String(item.product._id),
-            name: item.product.name,
-            image: item.product.image || [],
-            location: item.product.location || "",
-            sellerContact: item.product.sellerContact || "",
-            sellerLocation: item.product.sellerLocation || "",
-        }
-        : null,
+const getNotification = (title, message) => ({
+    type: "order",
+    title,
+    message,
+    read: false,
+    date: new Date(),
 });
 
 export async function GET(request) {
     try {
         const userId = await getRequestUserId(request);
         const isRider = await authRider(userId);
-        if (!isRider) return NextResponse.json({ success: false, message: "Unauthorized" });
+        if (!isRider) {
+            return NextResponse.json({ success: false, message: "Unauthorized" });
+        }
 
         await connectDB();
         const role = await getUserRole(userId);
-        const baseFilter = {
-            status: {
-                $in: [
-                    'Order Placed',
-                    'Confirmed',
-                    'Preparing',
-                    'Processing',
-                    'Ready for Delivery',
-                    'Shipped',
-                    'Out for Delivery',
-                    'Delivered',
-                ]
-            }
-        };
-
-        const deliveries = await Order.find(
-            role === 'admin'
-                ? baseFilter
-                : { ...baseFilter, riderId: userId }
-        )
+        const riderUser = await User.findById(userId).select("_id name phoneNumber riderAvailability imageUrl").lean();
+        const deliveries = await Order.find(role === "admin" ? {} : { riderId: userId })
             .populate({ path: "items.product", model: Product })
             .populate({ path: "address", model: Address })
             .sort({ date: -1 })
             .lean();
 
-        const sellerIds = [...new Set(deliveries.map((delivery) => delivery.sellerId).filter(Boolean))];
+        const visibleDeliveries = deliveries.filter((delivery) => {
+            const status = normalizeOrderStatus(delivery?.status);
+            const assignmentStatus = normalizeRiderAssignmentStatus(delivery?.riderAssignmentStatus, delivery?.riderId);
+
+            if (role === "admin") {
+                return ACTIVE_ORDER_STATUSES.has(status)
+                    || status === ORDER_STATUSES.DELIVERED
+                    || status === ORDER_STATUSES.COMPLETED;
+            }
+
+            return assignmentStatus === RIDER_ASSIGNMENT_STATUSES.PENDING
+                || assignmentStatus === RIDER_ASSIGNMENT_STATUSES.ACCEPTED
+                || status === ORDER_STATUSES.DELIVERED
+                || status === ORDER_STATUSES.COMPLETED;
+        });
+
+        const sellerIds = [...new Set(visibleDeliveries.map((delivery) => delivery.sellerId).filter(Boolean))];
         const sellers = sellerIds.length
             ? await User.find({ _id: { $in: sellerIds } })
-                .select("_id name phoneNumber businessName businessLocation")
+                .select("_id name phoneNumber businessName businessLocation sellerRatingSummary")
                 .lean()
             : [];
 
         const sellerMap = new Map(sellers.map((seller) => [String(seller._id), seller]));
 
-        const deliverySummaries = deliveries.map((delivery) => {
-            const seller = sellerMap.get(String(delivery.sellerId));
+        const deliverySummaries = visibleDeliveries.map((delivery) => {
             const products = delivery.items
                 .map((item) => item.product)
                 .filter(Boolean);
             const firstProduct = products[0] || null;
-            const pickupStops = [...new Set(products.map((product) => product.location).filter(Boolean))];
-            const totalItems = delivery.items.reduce((sum, item) => sum + item.quantity, 0);
 
             return {
-                ...delivery,
-                items: delivery.items.map(sanitizeItem),
-                totalItems,
-                seller: {
-                    id: delivery.sellerId || "",
-                    name: seller?.businessName || seller?.name || "Seller",
-                    phoneNumber: seller?.phoneNumber || firstProduct?.sellerContact || "",
-                    businessLocation: seller?.businessLocation || firstProduct?.sellerLocation || firstProduct?.location || "",
-                },
-                pickup: {
-                    location: seller?.businessLocation || firstProduct?.sellerLocation || firstProduct?.location || "",
-                    phoneNumber: seller?.phoneNumber || firstProduct?.sellerContact || "",
-                    stops: pickupStops,
-                },
-                dropoff: {
-                    customerName: delivery.address?.fullName || "",
-                    phoneNumber: delivery.address?.phoneNumber || delivery.customerPhone || "",
-                    location: formatDropLocation(delivery.address),
-                    area: delivery.address?.area || "",
-                    city: delivery.address?.city || "",
-                    state: delivery.address?.state || "",
-                },
-                estimatedCommission: (delivery.amount || 0) * 0.05,
-                trackingEvents: serializeTrackingEvents(ensureTrackingEvents(delivery)),
+                ...serializeRiderDelivery({
+                    order: delivery,
+                    seller: sellerMap.get(String(delivery.sellerId)) || null,
+                    rider: riderUser,
+                    productFallback: firstProduct,
+                }),
+                deliveryPayout: Number(delivery?.deliveryFee) || 0,
             };
         });
 
-        return NextResponse.json({ success: true, deliveries: deliverySummaries });
+        return NextResponse.json({
+            success: true,
+            deliveries: deliverySummaries,
+            riderAvailability: riderUser?.riderAvailability || "available",
+        });
     } catch (error) {
+        console.error("Error fetching rider deliveries:", error);
         return NextResponse.json({ success: false, message: error.message });
     }
 }
@@ -128,36 +110,118 @@ export async function PUT(request) {
     try {
         const userId = await getRequestUserId(request);
         const isRider = await authRider(userId);
-        if (!isRider) return NextResponse.json({ success: false, message: "Unauthorized" });
-        const role = await getUserRole(userId);
+        if (!isRider) {
+            return NextResponse.json({ success: false, message: "Unauthorized" });
+        }
 
-        const { orderId, status } = await request.json();
-        const allowedStatuses = ['Out for Delivery', 'Delivered'];
-        if (!allowedStatuses.includes(status)) {
-            return NextResponse.json({ success: false, message: "Riders can only mark Out for Delivery or Delivered" });
+        const role = await getUserRole(userId);
+        const { orderId, status, assignmentResponse } = await request.json();
+
+        if (!orderId) {
+            return NextResponse.json({ success: false, message: "Order ID is required" }, { status: 400 });
         }
 
         await connectDB();
+
+        const riderUser = await User.findById(userId).select("_id name phoneNumber riderAvailability imageUrl");
         const order = await Order.findById(orderId);
         if (!order) {
             return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });
         }
 
-        if (role !== 'admin' && order.riderId !== userId) {
+        if (role !== "admin" && String(order.riderId || "") !== userId) {
             return NextResponse.json({ success: false, message: "This delivery is not assigned to you" }, { status: 403 });
         }
 
-        if (order.status !== status) {
-            order.status = status;
-            order.trackingEvents = [
-                ...(order.trackingEvents || []),
-                createStatusTrackingEvent(status),
-            ];
-            await order.save();
+        const outboundNotifications = [];
+        const touchedDocs = [];
+        const updatedFields = [];
 
-            const customerNotification = createStatusNotification(status, order._id);
-            const outboundNotifications = [
-                {
+        if (typeof assignmentResponse === "string" && assignmentResponse.trim()) {
+            const responseResult = respondToRiderAssignment({
+                order,
+                response: assignmentResponse,
+            });
+
+            if (responseResult.changed) {
+                if (assignmentResponse.trim().toUpperCase() === "ACCEPT" && riderUser) {
+                    riderUser.riderAvailability = "busy";
+                    touchedDocs.push(riderUser);
+                    order.trackingEvents = [
+                        ...(order.trackingEvents || []),
+                        createRiderAssignmentTrackingEvent({ accepted: true }),
+                    ];
+                    outboundNotifications.push({
+                        userId: order.userId,
+                        notification: getNotification(
+                            "Rider accepted delivery",
+                            `Order #${formatShortOrderId(order._id)} now has a confirmed rider.`
+                        ),
+                        emailTitle: `Rider accepted delivery: #${formatShortOrderId(order._id)}`,
+                        emailMessage: `Your assigned rider accepted delivery for order #${formatShortOrderId(order._id)}.`,
+                        ctaLabel: "Track order",
+                        ctaPath: "/my-orders",
+                    });
+                }
+
+                if (assignmentResponse.trim().toUpperCase() === "DECLINE") {
+                    if (riderUser) {
+                        riderUser.riderAvailability = "available";
+                        touchedDocs.push(riderUser);
+                    }
+
+                    order.trackingEvents = [
+                        ...(order.trackingEvents || []),
+                        createRiderAssignmentTrackingEvent({ declined: true }),
+                    ];
+                    outboundNotifications.push({
+                        userId: order.sellerId,
+                        notification: getNotification(
+                            "Rider declined assignment",
+                            `Order #${formatShortOrderId(order._id)} needs a new rider assignment.`
+                        ),
+                        emailTitle: `Rider declined assignment: #${formatShortOrderId(order._id)}`,
+                        emailMessage: `The assigned rider declined order #${formatShortOrderId(order._id)}. Reassign a rider from the seller dashboard.`,
+                        ctaLabel: "Open seller orders",
+                        ctaPath: "/seller/orders",
+                    });
+                    outboundNotifications.push({
+                        userId: order.userId,
+                        notification: getNotification(
+                            "Delivery reassignment needed",
+                            `Order #${formatShortOrderId(order._id)} is waiting for a new rider assignment.`
+                        ),
+                        emailTitle: `Delivery reassignment needed: #${formatShortOrderId(order._id)}`,
+                        emailMessage: `Your order #${formatShortOrderId(order._id)} is waiting for a new rider after the last rider declined the delivery.`,
+                        ctaLabel: "Track order",
+                        ctaPath: "/my-orders",
+                    });
+                }
+
+                updatedFields.push("assignment");
+            }
+        }
+
+        if (typeof status === "string" && status.trim()) {
+            const transition = applyOrderStatusTransition({
+                order,
+                nextStatus: status,
+                actorRole: "rider",
+            });
+
+            if (transition.changed) {
+                order.trackingEvents = [
+                    ...(order.trackingEvents || []),
+                    createStatusTrackingEvent(transition.nextStatus),
+                ];
+
+                if (transition.nextStatus === ORDER_STATUSES.DELIVERED && riderUser) {
+                    riderUser.riderAvailability = "available";
+                    touchedDocs.push(riderUser);
+                }
+
+                const customerNotification = createStatusNotification(transition.nextStatus, order._id);
+                outboundNotifications.push({
                     userId: order.userId,
                     notification: customerNotification,
                     emailTitle: customerNotification.title,
@@ -165,35 +229,54 @@ export async function PUT(request) {
                     ctaLabel: "Track order",
                     ctaPath: "/my-orders",
                     emailDetails: [
-                        { label: "order_id", value: `#${String(order._id).slice(-8).toUpperCase()}` },
-                        { label: "status", value: status },
-                    ],
-                },
-            ];
-
-            if (order.sellerId && order.sellerId !== userId) {
-                const sellerNotification = createSellerStatusNotification(status, order._id);
-                outboundNotifications.push({
-                    userId: order.sellerId,
-                    notification: sellerNotification,
-                    emailTitle: sellerNotification.title,
-                    emailMessage: sellerNotification.message,
-                    ctaLabel: "Open seller orders",
-                    ctaPath: "/seller/orders",
-                    emailDetails: [
-                        { label: "order_id", value: `#${String(order._id).slice(-8).toUpperCase()}` },
-                        { label: "status", value: status },
+                        { label: "order_id", value: `#${formatShortOrderId(order._id)}` },
+                        { label: "status", value: transition.nextStatus },
                     ],
                 });
-            }
 
-            await notifyUsers([
-                ...outboundNotifications,
-            ]);
+                if (order.sellerId && order.sellerId !== userId) {
+                    const sellerNotification = createSellerStatusNotification(transition.nextStatus, order._id);
+                    outboundNotifications.push({
+                        userId: order.sellerId,
+                        notification: sellerNotification,
+                        emailTitle: sellerNotification.title,
+                        emailMessage: sellerNotification.message,
+                        ctaLabel: "Open seller orders",
+                        ctaPath: "/seller/orders",
+                        emailDetails: [
+                            { label: "order_id", value: `#${formatShortOrderId(order._id)}` },
+                            { label: "status", value: transition.nextStatus },
+                        ],
+                    });
+                }
+
+                updatedFields.push("status");
+            }
         }
 
-        return NextResponse.json({ success: true, message: `Marked as ${status}` });
+        if (updatedFields.length === 0) {
+            return NextResponse.json({ success: true, message: "No delivery changes were made" });
+        }
+
+        await Promise.all([
+            order.save(),
+            ...touchedDocs.map((doc) => doc.save()),
+        ]);
+
+        if (outboundNotifications.length > 0) {
+            await notifyUsers(outboundNotifications);
+        }
+
+        return NextResponse.json({
+            success: true,
+            message: updatedFields.includes("status")
+                ? `Marked as ${normalizeOrderStatus(order.status)}`
+                : assignmentResponse.trim().toUpperCase() === "ACCEPT"
+                    ? "Delivery accepted"
+                    : "Delivery declined",
+        });
     } catch (error) {
+        console.error("Error updating rider delivery:", error);
         return NextResponse.json({ success: false, message: error.message });
     }
 }

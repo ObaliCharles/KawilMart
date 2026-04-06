@@ -1,67 +1,123 @@
 'use client'
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import Image from "next/image";
-import { getProductActivitySnapshot } from "@/lib/liveCommerce";
+import { getLocationLabel, getProductActivitySnapshot } from "@/lib/liveCommerce";
+
+const getTimeParts = (milliseconds) => {
+  const safeMilliseconds = Math.max(0, milliseconds);
+  const totalSeconds = Math.floor(safeMilliseconds / 1000);
+
+  return {
+    hours: Math.floor(totalSeconds / 3600),
+    minutes: Math.floor((totalSeconds % 3600) / 60),
+    seconds: totalSeconds % 60,
+  };
+};
+
+const pad = (value) => String(value).padStart(2, "0");
 
 const FlashDeals = () => {
   const { products, formatCurrency, navigate, prefetchRoute, setIsRouteLoading } = useAppContext();
-  const [timeLeft, setTimeLeft] = useState({ hours: 5, minutes: 32, seconds: 58 });
+
+  const flashDeals = useMemo(() => (
+    products
+      .filter((product) => getProductActivitySnapshot(product).flashDealActive)
+      .sort((leftProduct, rightProduct) => {
+        const leftActivity = getProductActivitySnapshot(leftProduct);
+        const rightActivity = getProductActivitySnapshot(rightProduct);
+
+        if (leftActivity.hasFlashDealDeadline && rightActivity.hasFlashDealDeadline) {
+          return leftActivity.flashDealEndsAt - rightActivity.flashDealEndsAt;
+        }
+
+        if (leftActivity.hasFlashDealDeadline) {
+          return -1;
+        }
+
+        if (rightActivity.hasFlashDealDeadline) {
+          return 1;
+        }
+
+        return rightActivity.priceDropPercent - leftActivity.priceDropPercent;
+      })
+      .slice(0, 6)
+  ), [products]);
+
+  const earliestDeadline = useMemo(() => {
+    const deadlines = flashDeals
+      .map((product) => getProductActivitySnapshot(product).flashDealEndsAt)
+      .filter((value) => Number.isFinite(value) && value > Date.now());
+
+    return deadlines.length ? Math.min(...deadlines) : 0;
+  }, [flashDeals]);
+
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        let { hours, minutes, seconds } = prev;
-        if (seconds > 0) return { hours, minutes, seconds: seconds - 1 };
-        if (minutes > 0) return { hours, minutes: minutes - 1, seconds: 59 };
-        if (hours > 0) return { hours: hours - 1, minutes: 59, seconds: 59 };
-        return { hours: 5, minutes: 32, seconds: 58 };
-      });
+    if (!earliestDeadline) {
+      return undefined;
+    }
+
+    setNow(Date.now());
+    const timer = window.setInterval(() => {
+      setNow(Date.now());
     }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
-  const pad = (n) => String(n).padStart(2, '0');
+    return () => window.clearInterval(timer);
+  }, [earliestDeadline]);
 
-  // Get actual flash deal products
-  const flashDeals = products.filter(p => p.isFlashDeal && (!p.flashDealEndDate || new Date(p.flashDealEndDate) > new Date())).slice(0, 6);
+  if (!flashDeals.length) {
+    return null;
+  }
 
-  if (flashDeals.length === 0) return null;
+  const hasCountdown = earliestDeadline > now;
+  const timeLeft = getTimeParts(earliestDeadline - now);
 
   return (
-    <div className="mt-14">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
+    <section className="mt-14">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex items-center gap-2">
             <span className="text-2xl">⚡</span>
-            <p className="text-2xl font-bold text-gray-900">Flash Deals</p>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">Flash Deals</p>
+              <p className="text-sm text-gray-500">Current limited-time prices already active in your marketplace.</p>
+            </div>
           </div>
-          {/* Countdown */}
-          <div className="flex items-center gap-1 bg-orange-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold">
-            <span>Ends in:</span>
-            <span className="bg-white text-orange-600 px-1.5 py-0.5 rounded">{pad(timeLeft.hours)}</span>
-            <span>:</span>
-            <span className="bg-white text-orange-600 px-1.5 py-0.5 rounded">{pad(timeLeft.minutes)}</span>
-            <span>:</span>
-            <span className="bg-white text-orange-600 px-1.5 py-0.5 rounded">{pad(timeLeft.seconds)}</span>
-          </div>
+
+          {hasCountdown ? (
+            <div className="inline-flex w-fit items-center gap-1 rounded-2xl bg-orange-600 px-3 py-2 text-sm font-bold text-white">
+              <span className="pr-1 text-xs font-semibold uppercase tracking-[0.14em] text-orange-100">Ends in</span>
+              <span className="rounded-md bg-white px-1.5 py-0.5 text-orange-600">{pad(timeLeft.hours)}</span>
+              <span>:</span>
+              <span className="rounded-md bg-white px-1.5 py-0.5 text-orange-600">{pad(timeLeft.minutes)}</span>
+              <span>:</span>
+              <span className="rounded-md bg-white px-1.5 py-0.5 text-orange-600">{pad(timeLeft.seconds)}</span>
+            </div>
+          ) : (
+            <div className="inline-flex w-fit rounded-full border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-orange-700">
+              Limited-time offers live now
+            </div>
+          )}
         </div>
+
         <Link
           href="/all-products?filter=flash"
           onClick={() => setIsRouteLoading(true)}
-          className="text-orange-600 text-sm font-medium hover:underline flex items-center gap-1"
+          className="inline-flex items-center gap-1 text-sm font-medium text-orange-600 transition hover:text-orange-700 hover:underline"
         >
-          See All <span>→</span>
+          See all deals <span>→</span>
         </Link>
       </div>
 
-      {/* Products Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
         {flashDeals.map((product) => {
-          const discount = Math.round(((product.price - product.offerPrice) / product.price) * 100);
           const activity = getProductActivitySnapshot(product);
+          const savingsWidth = Math.max(18, Math.min(100, activity.priceDropPercent || 24));
+          const location = getLocationLabel(product.sellerProfile?.location || product.sellerLocation || product.location);
+
           return (
             <div
               key={product._id}
@@ -71,39 +127,68 @@ const FlashDeals = () => {
               }}
               onMouseEnter={() => prefetchRoute(`/product/${product._id}`)}
               onFocus={() => prefetchRoute(`/product/${product._id}`)}
-              className="bg-white border border-gray-100 rounded-xl overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-200 group"
+              className="group cursor-pointer overflow-hidden rounded-[1.5rem] border border-gray-200 bg-white transition-all duration-200 hover:-translate-y-1 hover:border-orange-300 hover:shadow-lg"
             >
-              {/* Image */}
-              <div className="relative bg-gray-50 h-40 flex items-center justify-center p-3">
-                <span className="absolute top-2 left-2 bg-orange-600 text-white text-xs font-bold px-2 py-0.5 rounded-full z-10">
-                  -{discount}%
-                </span>
+              <div className="relative flex aspect-[4/3] items-center justify-center bg-gray-50 p-4">
+                {activity.hasDiscount ? (
+                  <span className="absolute left-3 top-3 rounded-full bg-orange-600 px-2.5 py-1 text-[11px] font-bold text-white">
+                    -{activity.priceDropPercent}%
+                  </span>
+                ) : (
+                  <span className="absolute left-3 top-3 rounded-full bg-gray-900 px-2.5 py-1 text-[11px] font-bold text-white">
+                    Limited time
+                  </span>
+                )}
+
                 <Image
                   src={product.image[0]}
                   alt={product.name}
-                  width={150}
-                  height={150}
-                  className="h-32 w-auto object-contain group-hover:scale-105 transition"
+                  width={240}
+                  height={240}
+                  className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
+                  sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, (max-width: 1280px) 22vw, 15vw"
                 />
               </div>
-              {/* Info */}
-              <div className="p-3">
-                <p className="text-sm font-medium text-gray-800 truncate">{product.name}</p>
-                <div className="flex items-baseline gap-2 mt-1">
-                  <p className="text-orange-600 font-bold text-sm">{formatCurrency(product.offerPrice)}</p>
-                  <p className="text-xs text-gray-400 line-through">{formatCurrency(product.price)}</p>
+
+              <div className="space-y-3 p-4">
+                <div>
+                  <p className="line-clamp-2 text-sm font-semibold leading-6 text-gray-900">{product.name}</p>
+                  <div className="mt-1 flex flex-wrap items-baseline gap-2">
+                    <p className="text-sm font-bold text-orange-600">{formatCurrency(product.offerPrice)}</p>
+                    {activity.hasDiscount ? (
+                      <p className="text-xs text-gray-400 line-through">{formatCurrency(product.price)}</p>
+                    ) : null}
+                  </div>
                 </div>
-                {/* Progress bar */}
-                <div className="mt-2">
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+
+                <div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
                     <div
-                      className="h-full bg-gradient-to-r from-orange-400 to-orange-600 rounded-full"
-                      style={{ width: `${Math.min(90, 30 + discount)}%` }}
+                      className="h-full rounded-full bg-gradient-to-r from-orange-400 to-orange-600"
+                      style={{ width: `${savingsWidth}%` }}
                     />
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5">🔥 {Math.min(90, 30 + discount)}% claimed</p>
-                  <p className="mt-1 text-[11px] text-gray-500">
-                    {activity.viewersNow} viewing now · {activity.soldToday} sold today
+                  <p className="mt-1 text-[11px] font-medium text-gray-500">
+                    {activity.hasDiscount
+                      ? `You save ${formatCurrency(activity.savingsAmount)}`
+                      : "Special campaign pricing"}
+                  </p>
+                </div>
+
+                <div className="space-y-1 text-[11px] text-gray-500">
+                  <p>
+                    {activity.flashDealCountdownLabel
+                      ? `Ends in ${activity.flashDealCountdownLabel}`
+                      : "Deal stays active until the seller updates it"}
+                  </p>
+                  <p>
+                    {activity.hasRating
+                      ? `${activity.displayRating}/5 rating`
+                      : activity.likesCount > 0
+                        ? `${activity.likesCount} shopper like${activity.likesCount === 1 ? "" : "s"}`
+                        : "Fresh marketplace pick"}
+                    {" · "}
+                    {location}
                   </p>
                 </div>
               </div>
@@ -111,7 +196,7 @@ const FlashDeals = () => {
           );
         })}
       </div>
-    </div>
+    </section>
   );
 };
 

@@ -6,17 +6,6 @@ import { useAppContext } from '@/context/AppContext';
 import ProductRating from './ProductRating';
 import ProductActivityChips from './ProductActivityChips';
 
-// Simulate shop locations (in real system this comes from seller's profile)
-const shopLocations = [
-  "Kampala, UG", "Entebbe, UG", "Jinja, UG", "Gulu, UG", "Mbarara, UG", "Nairobi, KE"
-];
-
-const getShopLocation = (productId) => {
-  // Deterministically assign location from product ID
-  const index = productId ? productId.charCodeAt(productId.length - 1) % shopLocations.length : 0;
-  return shopLocations[index];
-};
-
 const getPromotionBadge = (product) => {
     if (product.isFlashDeal || product.promotionType === 'flash_deal') {
         return { label: 'Flash Deal', className: 'bg-red-100 text-red-700' };
@@ -45,7 +34,7 @@ const ProductCard = ({ product }) => {
       ? Math.round(((product.price - product.offerPrice) / product.price) * 100)
       : null;
 
-    const location = product.location || getShopLocation(product._id);
+    const location = product.sellerProfile?.location || product.sellerLocation || product.location || "Location pending";
     const promotionBadge = getPromotionBadge(product);
 
     const handleLikeClick = async (e) => {

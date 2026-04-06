@@ -66,19 +66,21 @@ const HomeOfferCollections = () => {
     .map(([sellerId, sellerProducts]) => {
       const sortedSellerProducts = sortProductsForCollections(sellerProducts);
       const primaryProduct = sortedSellerProducts[0];
-      const sellerName = primaryProduct?.sellerLocation || primaryProduct?.location || "Marketplace seller";
+      const sellerName = primaryProduct?.sellerProfile?.name || "Marketplace seller";
+      const sellerLocation = primaryProduct?.sellerProfile?.location || primaryProduct?.sellerLocation || primaryProduct?.location || "Location pending";
       const sellerCategories = formatCategoryHighlights(sortedSellerProducts);
       const bestOffer = Math.min(...sortedSellerProducts.map((product) => Number(product.offerPrice) || 0));
 
       return {
         key: sellerId,
         title: sellerName,
+        location: sellerLocation,
         productCount: sortedSellerProducts.length,
         heroProduct: sortedSellerProducts[0],
         products: sortedSellerProducts.slice(0, 3),
         description: sellerCategories.length
-          ? `Offers across ${sellerCategories.join(", ")}`
-          : "Explore this seller's latest offers.",
+          ? `Currently listing ${sellerCategories.join(", ")}`
+          : "Explore this seller's active offers.",
         badge: `${sortedSellerProducts.length} product${sortedSellerProducts.length === 1 ? "" : "s"}`,
         href: `/all-products?seller=${encodeURIComponent(sellerId)}`,
         footer: `Best price ${formatCurrency(bestOffer)}`,
@@ -95,9 +97,9 @@ const HomeOfferCollections = () => {
     <section className="mt-16">
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-3xl font-semibold text-gray-900">Store offers</p>
+          <p className="text-3xl font-semibold text-gray-900">Shop by store</p>
           <p className="max-w-2xl text-sm text-gray-500">
-            Cleaner store highlights with quick access to shops carrying several products.
+            Browse active shops with current listings, real prices, and quick entry into each storefront.
           </p>
         </div>
       </div>
@@ -112,27 +114,31 @@ const HomeOfferCollections = () => {
             onFocus={() => prefetchRoute(card.href)}
             className="group overflow-hidden rounded-[2rem] border border-gray-200 bg-white text-left transition hover:border-orange-300 hover:shadow-lg"
           >
-            <div className="grid gap-0 sm:grid-cols-[220px_1fr]">
-              <div className="relative min-h-[220px] bg-[#f4f2ed]">
+            <div className="grid gap-0 sm:grid-cols-[minmax(0,220px)_1fr]">
+              <div className="relative aspect-[4/3] min-h-[220px] bg-[#f4f2ed] sm:aspect-auto">
                 <Image
                   src={card.heroProduct.image[0]}
                   alt={card.heroProduct.name}
                   width={520}
                   height={620}
                   className="h-full w-full object-cover"
+                  sizes="(max-width: 640px) 100vw, 220px"
                 />
               </div>
 
               <div className="p-5 sm:p-6">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <span className="inline-flex rounded-full bg-[#f6f3ee] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
                       {card.badge}
                     </span>
                     <p className="mt-4 text-2xl font-semibold text-gray-900">{card.title}</p>
                     <p className="mt-2 text-sm leading-6 text-gray-600">{card.description}</p>
+                    <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-gray-400">
+                      {card.location}
+                    </p>
                   </div>
-                  <span className="text-sm font-semibold text-orange-700">{card.footer}</span>
+                  <span className="shrink-0 text-sm font-semibold text-orange-700">{card.footer}</span>
                 </div>
 
                 <div className="mt-6 space-y-3">

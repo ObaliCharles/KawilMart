@@ -8,26 +8,30 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { OrdersPageSkeleton } from "@/components/PageSkeletons";
 import { CUSTOMER_TRACKING_STEPS, getCustomerTrackingStepIndex } from "@/lib/orderTracking";
+import { isTerminalOrderStatus } from "@/lib/orderLifecycle";
+import {
+    getOrderStatusBadgeClass,
+    getOrderStatusDisplay,
+    getPaymentStatusBadgeClass,
+    getRiderAssignmentBadgeClass,
+} from "@/lib/orderUi";
 
-const statusColors = {
-    'Order Placed': 'bg-blue-100 text-blue-700',
-    'Confirmed': 'bg-sky-100 text-sky-700',
-    'Preparing': 'bg-amber-100 text-amber-700',
-    'Processing': 'bg-yellow-100 text-yellow-700',
-    'Ready for Delivery': 'bg-cyan-100 text-cyan-700',
-    'Shipped': 'bg-purple-100 text-purple-700',
-    'Out for Delivery': 'bg-orange-100 text-orange-700',
-    'Delivered': 'bg-green-100 text-green-700',
-    'Cancelled': 'bg-red-100 text-red-700',
+const defaultReviewState = {
+    reliability: 5,
+    speed: 5,
+    communication: 5,
+    comment: "",
 };
 
-const isOrderActive = (status) => !['Delivered', 'Cancelled'].includes(status);
+const scoreOptions = [1, 2, 3, 4, 5];
 
 const MyOrders = () => {
     const { getToken, user, authReady, formatCurrency } = useAppContext();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [actionOrderId, setActionOrderId] = useState("");
+    const [reviewForms, setReviewForms] = useState({});
 
     const fetchOrders = async ({ silent = false, background = false } = {}) => {
         try {
@@ -37,7 +41,7 @@ const MyOrders = () => {
 
             const token = await getToken();
             const { data } = await axios.get('/api/order/list', {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
             });
 
             if (data.success) {
@@ -59,12 +63,10 @@ const MyOrders = () => {
         if (authReady && user) {
             void fetchOrders();
         }
-        // Initial order hydration follows auth state.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authReady, user]);
 
-    const hasActiveOrders = orders.some((order) => isOrderActive(order.status));
-    const activeOrdersCount = orders.filter((order) => isOrderActive(order.status)).length;
+    const hasActiveOrders = orders.some((order) => !isTerminalOrderStatus(order.status));
+    const activeOrdersCount = orders.filter((order) => !isTerminalOrderStatus(order.status)).length;
 
     useEffect(() => {
         if (!authReady || !user || !hasActiveOrders) {
@@ -76,20 +78,74 @@ const MyOrders = () => {
         }, 20000);
 
         return () => window.clearInterval(interval);
-        // Active order polling should restart only when the active-state set changes.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authReady, user, hasActiveOrders]);
+
+    const updateReviewForm = (orderId, field, value) => {
+        setReviewForms((current) => ({
+            ...current,
+            [orderId]: {
+                ...(current[orderId] || defaultReviewState),
+                [field]: value,
+            },
+        }));
+    };
+
+    const runCustomerAction = async (orderId, payload, successMessage) => {
+        setActionOrderId(orderId);
+
+        try {
+            const token = await getToken();
+            const { data } = await axios.post(
+                '/api/order/customer-action',
+                { orderId, ...payload },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (data.success) {
+                toast.success(data.message || successMessage);
+                await fetchOrders({ background: true, silent: true });
+                return true;
+            }
+
+            toast.error(data.message);
+            return false;
+        } catch (error) {
+            toast.error(error?.response?.data?.message || error.message || 'Failed to update order');
+            return false;
+        } finally {
+            setActionOrderId("");
+        }
+    };
+
+    const handleConfirmDelivery = async (orderId) => {
+        await runCustomerAction(orderId, { action: "CONFIRM_DELIVERY" }, "Delivery confirmed successfully");
+    };
+
+    const handleSubmitReview = async (orderId) => {
+        const review = reviewForms[orderId] || defaultReviewState;
+        const success = await runCustomerAction(orderId, {
+            action: "SUBMIT_SELLER_REVIEW",
+            review,
+        }, "Seller review submitted successfully");
+
+        if (success) {
+            setReviewForms((current) => ({
+                ...current,
+                [orderId]: defaultReviewState,
+            }));
+        }
+    };
 
     return (
         <>
             <Navbar />
-            <div className="flex flex-col justify-between px-6 md:px-16 lg:px-32 py-6 min-h-screen">
+            <div className="flex min-h-screen flex-col justify-between px-6 py-6 md:px-16 lg:px-32">
                 <div className="space-y-5">
                     <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
                             <h2 className="text-2xl font-semibold text-gray-900">My Orders</h2>
-                            <p className="text-sm text-gray-500 mt-1">
-                                Track the latest status of your orders from placement to delivery.
+                            <p className="mt-1 text-sm text-gray-500">
+                                Track every order from placement through seller acceptance, delivery, and final confirmation.
                             </p>
                         </div>
 
@@ -114,7 +170,7 @@ const MyOrders = () => {
                     </div>
 
                     {loading ? <OrdersPageSkeleton titleWidth="w-32" /> : (
-                        <div className="space-y-6 max-w-6xl">
+                        <div className="max-w-6xl space-y-6">
                             {orders.length === 0 ? (
                                 <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-400">
                                     No orders yet
@@ -123,17 +179,21 @@ const MyOrders = () => {
                                 const currentStep = getCustomerTrackingStepIndex(order.status);
                                 const latestTrackingEvent = order.trackingEvents?.[order.trackingEvents.length - 1];
                                 const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
+                                const reviewForm = reviewForms[order._id] || defaultReviewState;
 
                                 return (
-                                    <div key={order._id} className="rounded-3xl border border-gray-200 bg-white p-5 md:p-6 shadow-sm">
+                                    <div key={order._id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm md:p-6">
                                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                                             <div className="space-y-2">
                                                 <div className="flex flex-wrap items-center gap-3">
                                                     <h3 className="text-lg font-semibold text-gray-900">
                                                         Order #{String(order._id).slice(-8).toUpperCase()}
                                                     </h3>
-                                                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-700'}`}>
-                                                        {order.status}
+                                                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${getOrderStatusBadgeClass(order.status)}`}>
+                                                        {getOrderStatusDisplay(order.status)}
+                                                    </span>
+                                                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${getPaymentStatusBadgeClass(order.paymentStatus)}`}>
+                                                        {order.paymentStatus}
                                                     </span>
                                                 </div>
                                                 <p className="text-sm text-gray-500">
@@ -149,19 +209,19 @@ const MyOrders = () => {
                                             <div className="rounded-2xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
                                                 <p className="font-semibold text-gray-900">{formatCurrency(order.amount)}</p>
                                                 <p>{totalItems} item{totalItems === 1 ? '' : 's'}</p>
-                                                <p>Payment: {order.paymentStatus}</p>
+                                                <p>{order.deliveryModeLabel} · Delivery fee {formatCurrency(order.deliveryFee)}</p>
                                             </div>
                                         </div>
 
                                         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-5">
                                             {CUSTOMER_TRACKING_STEPS.map((step, index) => {
-                                                const complete = index <= currentStep && order.status !== 'Cancelled';
-                                                const isCurrent = index === currentStep && order.status !== 'Cancelled';
+                                                const complete = index <= currentStep && order.status !== 'CANCELLED';
+                                                const isCurrent = index === currentStep && order.status !== 'CANCELLED';
 
                                                 return (
                                                     <div key={step.label} className="flex flex-col items-center gap-2 text-center">
                                                         <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
-                                                            order.status === 'Cancelled'
+                                                            order.status === 'CANCELLED'
                                                                 ? 'bg-red-100 text-red-600'
                                                                 : complete
                                                                     ? 'bg-orange-600 text-white'
@@ -169,9 +229,7 @@ const MyOrders = () => {
                                                         }`}>
                                                             {index + 1}
                                                         </div>
-                                                        <p className={`text-xs ${
-                                                            isCurrent ? 'font-semibold text-gray-900' : 'text-gray-500'
-                                                        }`}>
+                                                        <p className={`text-xs ${isCurrent ? 'font-semibold text-gray-900' : 'text-gray-500'}`}>
                                                             {step.label}
                                                         </p>
                                                     </div>
@@ -179,9 +237,9 @@ const MyOrders = () => {
                                             })}
                                         </div>
 
-                                        <div className="mt-6 grid grid-cols-1 xl:grid-cols-[1.2fr_1fr_0.9fr_1fr] gap-5">
+                                        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.2fr_1fr_0.9fr_1fr]">
                                             <div>
-                                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Items</p>
+                                                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Items</p>
                                                 <div className="space-y-2">
                                                     {order.items.map((item, index) => (
                                                         <div key={`${order._id}-${index}`} className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-3">
@@ -209,8 +267,8 @@ const MyOrders = () => {
                                             </div>
 
                                             <div>
-                                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Delivery Address</p>
-                                                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700 space-y-2">
+                                                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Delivery Address</p>
+                                                <div className="space-y-2 rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
                                                     <p className="font-semibold text-gray-900">{order.address?.fullName || 'No address'}</p>
                                                     <p>{order.address?.area || ''}</p>
                                                     <p>{[order.address?.city, order.address?.state].filter(Boolean).join(', ')}</p>
@@ -219,24 +277,42 @@ const MyOrders = () => {
                                             </div>
 
                                             <div>
-                                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Delivery Team</p>
+                                                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Marketplace Contacts</p>
                                                 <div className="space-y-3">
                                                     <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
                                                         <p className="text-xs uppercase tracking-wide text-gray-400">Seller</p>
                                                         <p className="mt-1 font-semibold text-gray-900">{order.seller?.name || 'Seller'}</p>
                                                         <p>{order.seller?.location || 'Location not available'}</p>
-                                                        <p>{order.seller?.phoneNumber || 'Phone not available'}</p>
+                                                        <p>
+                                                            {order.seller?.contactUnlocked
+                                                                ? (order.seller?.phoneNumber || 'Phone not available')
+                                                                : 'Unlocks after the seller accepts this order'}
+                                                        </p>
+                                                        <p className="mt-2 text-xs text-gray-400">
+                                                            Seller rating: {order.seller?.ratingSummary?.overall || 0} / 5
+                                                        </p>
                                                     </div>
                                                     <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
-                                                        <p className="text-xs uppercase tracking-wide text-gray-400">Rider</p>
-                                                        <p className="mt-1 font-semibold text-gray-900">{order.rider?.name || 'Not assigned yet'}</p>
-                                                        <p>{order.rider?.phoneNumber || 'Assignment pending'}</p>
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <div>
+                                                                <p className="text-xs uppercase tracking-wide text-gray-400">Rider</p>
+                                                                <p className="mt-1 font-semibold text-gray-900">{order.rider?.name || 'Not assigned yet'}</p>
+                                                            </div>
+                                                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${getRiderAssignmentBadgeClass(order.riderAssignmentStatus, order.riderId)}`}>
+                                                                {order.riderAssignmentStatus}
+                                                            </span>
+                                                        </div>
+                                                        <p className="mt-2">
+                                                            {order.rider?.contactUnlocked
+                                                                ? (order.rider?.phoneNumber || 'Phone not available')
+                                                                : 'Visible once the assigned rider accepts the job'}
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div>
-                                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Tracking Timeline</p>
+                                                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Tracking Timeline</p>
                                                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                                                     <div className="space-y-4">
                                                         {(order.trackingEvents || []).slice().reverse().map((event) => (
@@ -244,7 +320,7 @@ const MyOrders = () => {
                                                                 <span className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full bg-orange-500" />
                                                                 <p className="text-sm font-semibold text-gray-900">{event.title}</p>
                                                                 <p className="text-sm text-gray-600">{event.description}</p>
-                                                                <p className="text-xs text-gray-400 mt-1">
+                                                                <p className="mt-1 text-xs text-gray-400">
                                                                     {event.timestamp ? new Date(event.timestamp).toLocaleString() : 'Just now'}
                                                                 </p>
                                                             </div>
@@ -253,14 +329,97 @@ const MyOrders = () => {
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {order.actions?.canConfirmDelivery && (
+                                            <div className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                    <div>
+                                                        <p className="font-semibold text-emerald-900">Confirm receipt to complete the order</p>
+                                                        <p className="text-sm text-emerald-700">
+                                                            The seller or rider marked this as delivered. Confirm only after you have the items.
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => void handleConfirmDelivery(order._id)}
+                                                        disabled={actionOrderId === order._id}
+                                                        className="rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-70"
+                                                    >
+                                                        {actionOrderId === order._id ? 'Saving...' : 'Confirm Delivery'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {order.actions?.canReviewSeller && !order.sellerReview && (
+                                            <div className="mt-6 rounded-2xl border border-orange-100 bg-orange-50 p-4">
+                                                <p className="font-semibold text-gray-900">Rate this seller</p>
+                                                <p className="mt-1 text-sm text-gray-600">
+                                                    Your review improves trust for future customers.
+                                                </p>
+
+                                                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                                                    {[
+                                                        { key: 'reliability', label: 'Reliability' },
+                                                        { key: 'speed', label: 'Speed' },
+                                                        { key: 'communication', label: 'Communication' },
+                                                    ].map((field) => (
+                                                        <label key={field.key} className="text-sm text-gray-700">
+                                                            <span className="mb-2 block font-medium">{field.label}</span>
+                                                            <select
+                                                                value={reviewForm[field.key]}
+                                                                onChange={(event) => updateReviewForm(order._id, field.key, Number(event.target.value))}
+                                                                className="w-full rounded-xl border border-orange-200 bg-white px-3 py-3 outline-none transition focus:border-orange-400"
+                                                            >
+                                                                {scoreOptions.map((score) => (
+                                                                    <option key={score} value={score}>{score}/5</option>
+                                                                ))}
+                                                            </select>
+                                                        </label>
+                                                    ))}
+                                                </div>
+
+                                                <label className="mt-4 block text-sm text-gray-700">
+                                                    <span className="mb-2 block font-medium">Comment</span>
+                                                    <textarea
+                                                        rows={3}
+                                                        value={reviewForm.comment}
+                                                        onChange={(event) => updateReviewForm(order._id, 'comment', event.target.value)}
+                                                        className="w-full resize-none rounded-xl border border-orange-200 bg-white px-3 py-3 outline-none transition focus:border-orange-400"
+                                                        placeholder="How was your experience with this seller?"
+                                                    />
+                                                </label>
+
+                                                <div className="mt-4 flex justify-end">
+                                                    <button
+                                                        onClick={() => void handleSubmitReview(order._id)}
+                                                        disabled={actionOrderId === order._id}
+                                                        className="rounded-full bg-orange-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-wait disabled:opacity-70"
+                                                    >
+                                                        {actionOrderId === order._id ? 'Saving...' : 'Submit Seller Review'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {order.sellerReview && (
+                                            <div className="mt-6 rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
+                                                <p className="font-semibold text-gray-900">Your seller review</p>
+                                                <p className="mt-2">
+                                                    Reliability {order.sellerReview.reliability}/5 · Speed {order.sellerReview.speed}/5 · Communication {order.sellerReview.communication}/5
+                                                </p>
+                                                {order.sellerReview.comment ? (
+                                                    <p className="mt-2 text-gray-600">{order.sellerReview.comment}</p>
+                                                ) : null}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
                         </div>
                     )}
                 </div>
+                <Footer />
             </div>
-            <Footer />
         </>
     );
 };

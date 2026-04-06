@@ -5,6 +5,7 @@ import authAdmin from "@/lib/authAdmin";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import Address from "@/models/Address";
+import User from "@/models/User";
 import { getUserRole } from "@/lib/userRoleCache";
 import {
     createAssignmentNotification,
@@ -14,21 +15,43 @@ import {
     createStatusTrackingEvent,
 } from "@/lib/orderTracking";
 import { notifyUsers } from "@/lib/notifyUsers";
+import { serializeAdminOrder } from "@/lib/orderSerialization";
+import { RIDER_ASSIGNMENT_STATUSES } from "@/lib/orderLifecycle";
+import {
+    applyOrderStatusTransition,
+    assignRiderToOrder,
+    formatShortOrderId,
+} from "@/lib/orderWorkflow";
+
+const getNotification = (title, message) => ({
+    type: "order",
+    title,
+    message,
+    read: false,
+    date: new Date(),
+});
 
 export async function GET(request) {
     try {
         const userId = await getRequestUserId(request);
         const isAdmin = await authAdmin(userId);
-        if (!isAdmin) return NextResponse.json({ success: false, message: "Unauthorized" });
+        if (!isAdmin) {
+            return NextResponse.json({ success: false, message: "Unauthorized" });
+        }
 
         await connectDB();
         const orders = await Order.find({})
             .populate({ path: "items.product", model: Product })
             .populate({ path: "address", model: Address })
-            .sort({ date: -1 });
+            .sort({ date: -1 })
+            .lean();
 
-        return NextResponse.json({ success: true, orders });
+        return NextResponse.json({
+            success: true,
+            orders: orders.map((order) => serializeAdminOrder(order)),
+        });
     } catch (error) {
+        console.error("Error fetching admin orders:", error);
         return NextResponse.json({ success: false, message: error.message });
     }
 }
@@ -37,32 +60,47 @@ export async function PUT(request) {
     try {
         const userId = await getRequestUserId(request);
         const isAdmin = await authAdmin(userId);
-        if (!isAdmin) return NextResponse.json({ success: false, message: "Unauthorized" });
+        if (!isAdmin) {
+            return NextResponse.json({ success: false, message: "Unauthorized" });
+        }
 
         const { orderId, status, riderId } = await request.json();
+        if (!orderId) {
+            return NextResponse.json({ success: false, message: "Order ID is required" }, { status: 400 });
+        }
+
         await connectDB();
 
-        const order = await Order.findById(orderId);
+        const order = await Order.findById(orderId)
+            .populate({ path: "items.product", model: Product })
+            .populate({ path: "address", model: Address });
         if (!order) {
             return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });
         }
 
+        const previousRiderId = order.riderId || "";
+        const previousAssignmentStatus = order.riderAssignmentStatus;
         const customerNotifications = [];
         const outboundNotifications = [];
-        const previousStatus = order.status;
-        const previousRiderId = order.riderId || null;
+        const touchedDocs = [];
+        const updatedFields = [];
 
-        if (typeof status === "string" && status) {
-            if (status !== previousStatus) {
-                order.status = status;
+        if (typeof status === "string" && status.trim()) {
+            const transition = applyOrderStatusTransition({
+                order,
+                nextStatus: status,
+                actorRole: "admin",
+            });
+
+            if (transition.changed) {
                 order.trackingEvents = [
                     ...(order.trackingEvents || []),
-                    createStatusTrackingEvent(status),
+                    createStatusTrackingEvent(transition.nextStatus),
                 ];
-                customerNotifications.push(createStatusNotification(status, order._id));
+                customerNotifications.push(createStatusNotification(transition.nextStatus, order._id));
 
-                if (order.sellerId && order.sellerId !== userId) {
-                    const sellerNotification = createSellerStatusNotification(status, order._id);
+                if (order.sellerId) {
+                    const sellerNotification = createSellerStatusNotification(transition.nextStatus, order._id);
                     outboundNotifications.push({
                         userId: order.sellerId,
                         notification: sellerNotification,
@@ -71,35 +109,61 @@ export async function PUT(request) {
                         ctaLabel: "Open seller orders",
                         ctaPath: "/seller/orders",
                         emailDetails: [
-                            { label: "order_id", value: `#${String(order._id).slice(-8).toUpperCase()}` },
-                            { label: "status", value: status },
+                            { label: "order_id", value: `#${formatShortOrderId(order._id)}` },
+                            { label: "status", value: transition.nextStatus },
                         ],
                     });
                 }
+
+                if (transition.nextStatus === "FAILED" && order.riderId && previousAssignmentStatus === RIDER_ASSIGNMENT_STATUSES.ACCEPTED) {
+                    const riderUser = await User.findById(order.riderId).select("_id riderAvailability");
+                    if (riderUser) {
+                        riderUser.riderAvailability = "available";
+                        touchedDocs.push(riderUser);
+                    }
+                }
+
+                updatedFields.push("status");
             }
         }
 
         if (riderId !== undefined) {
-            if (riderId) {
-                const riderRole = await getUserRole(riderId);
+            const nextRiderId = String(riderId || "").trim();
+
+            if (nextRiderId) {
+                const riderRole = await getUserRole(nextRiderId);
                 if (riderRole !== "rider" && riderRole !== "admin") {
                     return NextResponse.json({ success: false, message: "Selected user is not a rider" }, { status: 400 });
                 }
-                order.riderId = riderId;
 
-                if (riderId !== previousRiderId) {
-                    const shortOrderId = String(order._id).slice(-8).toUpperCase();
+                const riderUser = await User.findById(nextRiderId).select("_id name phoneNumber riderAvailability imageUrl");
+                if (!riderUser) {
+                    return NextResponse.json({ success: false, message: "Selected rider is unavailable" }, { status: 400 });
+                }
+
+                if (riderUser.riderAvailability === "busy" && nextRiderId !== previousRiderId) {
+                    return NextResponse.json({ success: false, message: "Selected rider is currently busy" }, { status: 400 });
+                }
+
+                const assignmentResult = assignRiderToOrder({ order, riderId: nextRiderId });
+                if (assignmentResult.changed) {
+                    if (previousRiderId && previousRiderId !== nextRiderId && previousAssignmentStatus === RIDER_ASSIGNMENT_STATUSES.ACCEPTED) {
+                        const previousRiderUser = await User.findById(previousRiderId).select("_id riderAvailability");
+                        if (previousRiderUser) {
+                            previousRiderUser.riderAvailability = "available";
+                            touchedDocs.push(previousRiderUser);
+                        }
+                    }
+
+                    const shortOrderId = formatShortOrderId(order._id);
                     outboundNotifications.push({
-                        userId: riderId,
-                        notification: {
-                            type: "order",
-                            title: "New delivery assigned",
-                            message: `Order #${shortOrderId} has been assigned to you.`,
-                            read: false,
-                            date: new Date(),
-                        },
+                        userId: nextRiderId,
+                        notification: getNotification(
+                            "New delivery assigned",
+                            `Order #${shortOrderId} has been assigned to you.`
+                        ),
                         emailTitle: `New delivery assigned: #${shortOrderId}`,
-                        emailMessage: `Order #${shortOrderId} has been assigned to you for delivery. Open your rider dashboard to review pickup and drop-off details.`,
+                        emailMessage: `Order #${shortOrderId} has been assigned to you for delivery. Open your rider dashboard to accept or decline it.`,
                         ctaLabel: "Open rider dashboard",
                         ctaPath: "/dashboard/rider",
                     });
@@ -109,21 +173,41 @@ export async function PUT(request) {
                         createRiderAssignmentTrackingEvent({ assigned: true }),
                     ];
                     customerNotifications.push(createAssignmentNotification(order._id, true));
+                    updatedFields.push("rider");
                 }
             } else {
-                order.riderId = null;
+                const assignmentResult = assignRiderToOrder({ order, riderId: "" });
+                if (assignmentResult.changed) {
+                    if (previousRiderId && previousAssignmentStatus === RIDER_ASSIGNMENT_STATUSES.ACCEPTED) {
+                        const previousRiderUser = await User.findById(previousRiderId).select("_id riderAvailability");
+                        if (previousRiderUser) {
+                            previousRiderUser.riderAvailability = "available";
+                            touchedDocs.push(previousRiderUser);
+                        }
+                    }
 
-                if (previousRiderId) {
                     order.trackingEvents = [
                         ...(order.trackingEvents || []),
                         createRiderAssignmentTrackingEvent({ assigned: false }),
                     ];
                     customerNotifications.push(createAssignmentNotification(order._id, false));
+                    updatedFields.push("rider");
                 }
             }
         }
 
-        await order.save();
+        if (updatedFields.length === 0) {
+            return NextResponse.json({
+                success: true,
+                message: "No order changes were made",
+                order: serializeAdminOrder(order.toObject()),
+            });
+        }
+
+        await Promise.all([
+            order.save(),
+            ...touchedDocs.map((doc) => doc.save()),
+        ]);
 
         if (customerNotifications.length > 0) {
             outboundNotifications.push(
@@ -142,8 +226,14 @@ export async function PUT(request) {
             await notifyUsers(outboundNotifications);
         }
 
-        return NextResponse.json({ success: true, message: "Order updated", order });
+        const orderForResponse = await Order.findById(order._id)
+            .populate({ path: "items.product", model: Product })
+            .populate({ path: "address", model: Address })
+            .lean();
+
+        return NextResponse.json({ success: true, message: "Order updated", order: serializeAdminOrder(orderForResponse) });
     } catch (error) {
+        console.error("Error updating admin order:", error);
         return NextResponse.json({ success: false, message: error.message });
     }
 }

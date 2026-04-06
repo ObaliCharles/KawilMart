@@ -7,10 +7,20 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { NotificationsPageSkeleton } from "@/components/PageSkeletons";
 
-const Notifications = () => {
-  const { getToken, user, authReady, markNotificationAsRead, setUnreadNotificationsCount } = useAppContext();
+const InboxPage = () => {
+  const {
+    getToken,
+    user,
+    authReady,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    setUnreadNotificationsCount,
+  } = useAppContext();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [markingAll, setMarkingAll] = useState(false);
+
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
 
   const fetchNotifications = async () => {
     try {
@@ -49,6 +59,33 @@ const Notifications = () => {
     }
   };
 
+  const markAllAsRead = async () => {
+    if (markingAll || unreadCount === 0) {
+      return;
+    }
+
+    setMarkingAll(true);
+
+    try {
+      const data = await markAllNotificationsAsRead();
+
+      if (!data?.success) {
+        toast.error(data?.message || 'Failed to mark all as read');
+        return;
+      }
+
+      setNotifications((current) => current.map((notification) => ({
+        ...notification,
+        read: true,
+      })));
+      toast.success(data.message || 'All inbox messages marked as read');
+    } catch {
+      toast.error('Failed to mark all as read');
+    } finally {
+      setMarkingAll(false);
+    }
+  };
+
   useEffect(() => {
     if (authReady && user) {
       void fetchNotifications();
@@ -67,12 +104,36 @@ const Notifications = () => {
     <>
       <Navbar />
       <div className="min-h-screen px-6 md:px-16 lg:px-32 py-8">
-        <h1 className="text-2xl font-bold mb-6">Notifications</h1>
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Inbox</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Manage updates from your orders, deliveries, and admin messages in one place.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="rounded-full bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700">
+              {unreadCount} unread
+            </span>
+            <button
+              onClick={markAllAsRead}
+              disabled={markingAll || unreadCount === 0}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                markingAll || unreadCount === 0
+                  ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                  : 'bg-gray-900 text-white hover:bg-black'
+              }`}
+            >
+              {markingAll ? 'Marking...' : 'Mark all as read'}
+            </button>
+          </div>
+        </div>
 
         <div className="space-y-4">
           {notifications.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No notifications yet
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-12 text-center text-gray-500">
+              Your inbox is empty
             </div>
           ) : (
             notifications.map((notification) => (
@@ -93,7 +154,7 @@ const Notifications = () => {
                   {!notification.read && (
                     <button
                       onClick={() => markAsRead(notification._id)}
-                      className="ml-4 px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                      className="ml-4 rounded-full bg-blue-500 px-3 py-1 text-sm text-white hover:bg-blue-600"
                     >
                       Mark Read
                     </button>
@@ -109,4 +170,4 @@ const Notifications = () => {
   );
 };
 
-export default Notifications;
+export default InboxPage;

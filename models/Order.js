@@ -12,6 +12,7 @@ import {
     normalizeOrderStatus,
     normalizeRiderAssignmentStatus,
 } from "@/lib/orderLifecycle";
+import { getOrderRiskFlags } from "@/lib/orderRisk";
 
 const trackingEventSchema = new mongoose.Schema({
     type: { type: String, enum: ['status', 'assignment', 'system'], default: 'status' },
@@ -135,6 +136,8 @@ orderSchema.pre("validate", function normalizeOrderDocument(next) {
     if (this.acceptedAt && !this.contactUnlockedAt) {
         this.contactUnlockedAt = this.acceptedAt;
     }
+
+    this.riskFlags = getOrderRiskFlags(this);
 
     next();
 });

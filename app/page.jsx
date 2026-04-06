@@ -19,7 +19,7 @@ const Home = async () => {
   return (
     <>
       <Navbar />
-      <div className="px-6 md:px-16 lg:px-32">
+      <div className="px-4 sm:px-6 lg:px-10 xl:px-16 2xl:px-24">
         <HeaderSlider slides={siteContent.heroSlides} />
         <MarketplacePulse />
         <ShopByCategory />

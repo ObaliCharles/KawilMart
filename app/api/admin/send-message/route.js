@@ -43,8 +43,8 @@ export async function POST(request) {
                 notification: messageNotification,
                 emailTitle: `New admin message: ${subject}`,
                 emailMessage: content,
-                ctaLabel: "Open notifications",
-                ctaPath: "/notifications",
+                ctaLabel: "Open inbox",
+                ctaPath: "/inbox",
             },
         ]);
 

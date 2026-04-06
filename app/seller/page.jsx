@@ -10,24 +10,7 @@ import { useSearchParams } from "next/navigation";
 import Footer from "@/components/seller/Footer";
 import { SellerProductFormSkeleton } from "@/components/dashboard/DashboardSkeletons";
 import { defaultSellerCategory, sellerCategoryGroups } from "@/lib/marketplaceCategories";
-
-const statusColors = {
-  'Order Placed': 'bg-blue-100 text-blue-700',
-  Confirmed: 'bg-sky-100 text-sky-700',
-  Preparing: 'bg-amber-100 text-amber-700',
-  Processing: 'bg-yellow-100 text-yellow-700',
-  'Ready for Delivery': 'bg-cyan-100 text-cyan-700',
-  Shipped: 'bg-purple-100 text-purple-700',
-  'Out for Delivery': 'bg-indigo-100 text-indigo-700',
-  Delivered: 'bg-green-100 text-green-700',
-  Cancelled: 'bg-red-100 text-red-700',
-};
-
-const paymentStatusColors = {
-  Pending: 'bg-amber-100 text-amber-700',
-  Paid: 'bg-green-100 text-green-700',
-  Failed: 'bg-red-100 text-red-700',
-};
+import { getOrderStatusBadgeClass, getOrderStatusDisplay, getPaymentStatusBadgeClass } from "@/lib/orderUi";
 
 const MetricCard = ({ icon, label, value, sub, color, valueClassName = '' }) => (
   <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
@@ -349,9 +332,9 @@ const AddProductInner = () => {
               <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
                 <MetricCard
                   icon="💰"
-                  label="Total Revenue"
+                  label="Completed Revenue"
                   value={formatCurrency(dashboardStats.totalRevenue)}
-                  sub="All seller earnings"
+                  sub={`${dashboardStats.completedOrders} completed orders`}
                   color="bg-green-50"
                   valueClassName="text-[15px] break-words sm:text-2xl"
                 />
@@ -393,18 +376,65 @@ const AddProductInner = () => {
                 />
                 <MetricCard
                   icon="🚚"
-                  label="Delivered"
-                  value={dashboardStats.deliveredOrders.toLocaleString()}
-                  sub="Completed deliveries"
+                  label="Commission Due"
+                  value={formatCurrency(dashboardStats.billing?.totalDue || 0)}
+                  sub={`Invoice ${dashboardStats.billing?.invoiceNumber || 'pending'}`}
                   color="bg-lime-50"
+                  valueClassName="text-[15px] break-words sm:text-2xl"
                 />
                 <MetricCard
                   icon="⭐"
-                  label="Store Signals"
-                  value={`${dashboardStats.averageRating.toFixed(1)} / 5`}
-                  sub={`${dashboardStats.totalLikes.toLocaleString()} total likes`}
+                  label="Subscription"
+                  value={dashboardStats.subscription?.status || 'active'}
+                  sub={`${formatCurrency(dashboardStats.subscription?.monthlyFee || 0)} monthly`}
                   color="bg-yellow-50"
                 />
+              </section>
+
+              <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
+                  <h2 className="font-semibold text-gray-900">Current Billing Snapshot</h2>
+                  <p className="mt-1 text-sm text-gray-500">Monthly subscription plus commission from completed orders only.</p>
+                  <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    {[
+                      { label: 'Invoice', value: dashboardStats.billing?.invoiceNumber || 'Pending' },
+                      { label: 'Completed Orders', value: dashboardStats.billing?.completedOrders || 0 },
+                      { label: 'Commission', value: formatCurrency(dashboardStats.billing?.commissionTotal || 0) },
+                      { label: 'Total Due', value: formatCurrency(dashboardStats.billing?.totalDue || 0) },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-2xl bg-gray-50 p-4">
+                        <p className="text-xs uppercase tracking-wide text-gray-400">{item.label}</p>
+                        <p className="mt-2 font-semibold text-gray-900 break-words">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
+                  <h2 className="font-semibold text-gray-900">Risk Monitor</h2>
+                  <p className="mt-1 text-sm text-gray-500">Basic anti-fraud flags from cancelled, failed, and unconfirmed deliveries.</p>
+                  <div className="mt-5 space-y-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Cancelled Orders</span>
+                      <span className="font-semibold text-gray-900">{dashboardStats.risk?.cancelledOrders || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Failed Orders</span>
+                      <span className="font-semibold text-gray-900">{dashboardStats.risk?.failedOrders || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Unconfirmed Deliveries</span>
+                      <span className="font-semibold text-gray-900">{dashboardStats.risk?.disputedDeliveries || 0}</span>
+                    </div>
+                    <div className="pt-2">
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        dashboardStats.risk?.flagged ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'
+                      }`}>
+                        {dashboardStats.risk?.flagged ? 'Monitoring required' : 'Healthy'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </section>
 
               <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.45fr_0.95fr]">
@@ -445,8 +475,8 @@ const AddProductInner = () => {
                       {statusEntries.length ? statusEntries.map(([status, count]) => (
                         <div key={status}>
                           <div className="mb-1 flex items-center justify-between gap-3">
-                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[status] || 'bg-gray-100 text-gray-600'}`}>
-                              {status}
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getOrderStatusBadgeClass(status)}`}>
+                              {getOrderStatusDisplay(status)}
                             </span>
                             <span className="text-sm font-semibold text-gray-700">{count}</span>
                           </div>
@@ -470,7 +500,7 @@ const AddProductInner = () => {
                         <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Payment Status</p>
                         {paymentEntries.length ? paymentEntries.map(([status, count]) => (
                           <div key={status} className="flex items-center justify-between gap-3 text-sm">
-                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${paymentStatusColors[status] || 'bg-gray-100 text-gray-600'}`}>
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getPaymentStatusBadgeClass(status)}`}>
                               {status}
                             </span>
                             <span className="font-semibold text-gray-700">{count}</span>
@@ -582,10 +612,10 @@ const AddProductInner = () => {
                           </div>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-600'}`}>
-                            {order.status}
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getOrderStatusBadgeClass(order.status)}`}>
+                            {getOrderStatusDisplay(order.status)}
                           </span>
-                          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${paymentStatusColors[order.paymentStatus] || 'bg-gray-100 text-gray-600'}`}>
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getPaymentStatusBadgeClass(order.paymentStatus)}`}>
                             {order.paymentStatus}
                           </span>
                         </div>

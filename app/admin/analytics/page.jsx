@@ -45,9 +45,9 @@ export default function AdminAnalytics() {
             {/* KPI row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                    { label: 'Avg Order Value', value: formatCurrency(stats.totalOrders ? stats.totalRevenue / stats.totalOrders : 0), icon: '💡' },
-                    { label: 'Delivery Rate', value: `${stats.totalOrders ? Math.round(((stats.statusCounts['Delivered'] || 0) / stats.totalOrders) * 100) : 0}%`, icon: '✅' },
-                    { label: 'Cancellation Rate', value: `${stats.totalOrders ? Math.round(((stats.statusCounts['Cancelled'] || 0) / stats.totalOrders) * 100) : 0}%`, icon: '❌' },
+                    { label: 'Avg Order Value', value: formatCurrency(stats.completedOrders ? stats.totalRevenue / stats.completedOrders : 0), icon: '💡' },
+                    { label: 'Completion Rate', value: `${stats.totalOrders ? Math.round(((stats.completedOrders || 0) / stats.totalOrders) * 100) : 0}%`, icon: '✅' },
+                    { label: 'Cancellation Rate', value: `${stats.totalOrders ? Math.round(((stats.cancelledOrders || 0) / stats.totalOrders) * 100) : 0}%`, icon: '❌' },
                     { label: 'Products/User Ratio', value: (stats.totalUsers ? (stats.totalProducts / stats.totalUsers).toFixed(1) : 0), icon: '📐' },
                 ].map(kpi => (
                     <div key={kpi.label} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">

@@ -224,6 +224,29 @@ export const AppContextProvider = (props) => {
         }
     }, [authReady, getToken, refreshUnreadNotifications, user])
 
+    const markAllNotificationsAsRead = useCallback(async () => {
+        try {
+            if (!authReady || !user) {
+                return { success: false, message: 'Not authenticated' }
+            }
+
+            const token = await getToken()
+            const headers = token ? { Authorization: `Bearer ${token}` } : {}
+            const { data } = await axios.post('/api/user/notifications', { markAllRead: true }, { headers })
+
+            if (data.success) {
+                setUnreadNotificationsCount(0)
+            }
+
+            return data
+        } catch (error) {
+            return {
+                success: false,
+                message: error.message,
+            }
+        }
+    }, [authReady, getToken, user])
+
     const syncAdminAccess = async () => {
         try {
             if (!authReady || !user) {
@@ -457,7 +480,7 @@ export const AppContextProvider = (props) => {
         addToCart, updateCartQuantity,
         getCartCount, getCartAmount,
         unreadNotificationsCount, setUnreadNotificationsCount,
-        refreshUnreadNotifications, markNotificationAsRead,
+        refreshUnreadNotifications, markNotificationAsRead, markAllNotificationsAsRead,
         loadingProducts, loadingUser
     }
 

@@ -5,6 +5,8 @@ import authAdmin from "@/lib/authAdmin";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import User from "@/models/User";
+import { ORDER_STATUSES, normalizeOrderStatus } from "@/lib/orderLifecycle";
+import { getSellerRiskSummary } from "@/lib/orderRisk";
 
 export async function GET(request) {
     try {
@@ -22,10 +24,16 @@ export async function GET(request) {
             User.find({}),
         ]);
 
-        const totalRevenue = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
+        const normalizedOrders = orders.map((order) => ({
+            ...order.toObject(),
+            status: normalizeOrderStatus(order.status),
+        }));
+        const totalRevenue = normalizedOrders
+            .filter((order) => order.status === ORDER_STATUSES.COMPLETED)
+            .reduce((sum, order) => sum + (Number(order.subtotal) || 0), 0);
 
         // Orders by status
-        const statusCounts = orders.reduce((acc, o) => {
+        const statusCounts = normalizedOrders.reduce((acc, o) => {
             acc[o.status] = (acc[o.status] || 0) + 1;
             return acc;
         }, {});
@@ -36,17 +44,17 @@ export async function GET(request) {
         const revenueByDay = Array.from({ length: 7 }, (_, i) => {
             const start = now - (6 - i) * dayMs;
             const end = start + dayMs;
-            const dayOrders = orders.filter(o => o.date >= start && o.date < end);
+            const dayOrders = normalizedOrders.filter(o => o.date >= start && o.date < end);
             return {
                 day: new Date(start).toLocaleDateString('en-US', { weekday: 'short' }),
-                revenue: dayOrders.reduce((sum, o) => sum + (o.amount || 0), 0),
+                revenue: dayOrders.reduce((sum, o) => sum + (Number(o.subtotal) || 0), 0),
                 count: dayOrders.length,
             };
         });
 
         // Top products by order frequency
         const productFreq = {};
-        orders.forEach(o => {
+        normalizedOrders.forEach(o => {
             o.items.forEach(item => {
                 const pid = String(item.product);
                 productFreq[pid] = (productFreq[pid] || 0) + item.quantity;
@@ -77,7 +85,13 @@ export async function GET(request) {
                 revenueByDay,
                 topProducts,
                 categoryBreakdown,
-                recentOrders: orders.slice(0, 5),
+                recentOrders: normalizedOrders.slice(0, 5),
+                flaggedSellers: users.filter((user) => getSellerRiskSummary(
+                    normalizedOrders.filter((order) => String(order.sellerId) === String(user._id))
+                ).flagged).length,
+                deliveredOrders: statusCounts[ORDER_STATUSES.DELIVERED] || 0,
+                completedOrders: statusCounts[ORDER_STATUSES.COMPLETED] || 0,
+                cancelledOrders: statusCounts[ORDER_STATUSES.CANCELLED] || 0,
             }
         });
 

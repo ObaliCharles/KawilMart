@@ -1,19 +1,62 @@
 'use client'
 
 import { useAppContext } from "@/context/AppContext";
+import { DELIVERY_MODES, calculateDeliveryFee } from "@/lib/orderLifecycle";
 import axios from "axios";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 
 const OrderSummary = () => {
-  const { router, getCartCount, getCartAmount, getToken, user, cartItems, setCartItems, authReady, formatCurrency, fetchUserData } = useAppContext();
+  const {
+    router,
+    getCartCount,
+    getCartAmount,
+    getToken,
+    user,
+    products,
+    cartItems,
+    setCartItems,
+    authReady,
+    formatCurrency,
+    fetchUserData,
+  } = useAppContext();
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [userAddresses, setUserAddresses] = useState([]);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [deliveryMode, setDeliveryMode] = useState(DELIVERY_MODES.DELIVERY);
   const cartAmount = getCartAmount();
-  const taxAmount = Math.floor(cartAmount * 0.02);
-  const totalAmount = cartAmount + taxAmount;
+
+  const estimatedDeliveryFee = useMemo(() => {
+    if (!selectedAddress || deliveryMode === DELIVERY_MODES.PICKUP) {
+      return 0;
+    }
+
+    const sellerLocations = new Map();
+
+    Object.entries(cartItems).forEach(([productId, quantity]) => {
+      if (quantity <= 0) {
+        return;
+      }
+
+      const product = products.find((entry) => entry._id === productId);
+      if (!product?.userId) {
+        return;
+      }
+
+      if (!sellerLocations.has(product.userId)) {
+        sellerLocations.set(product.userId, product.sellerLocation || product.location || "");
+      }
+    });
+
+    return Array.from(sellerLocations.values()).reduce((sum, sellerLocation) => sum + calculateDeliveryFee({
+      deliveryMode,
+      sellerLocation,
+      address: selectedAddress,
+    }), 0);
+  }, [cartItems, deliveryMode, products, selectedAddress]);
+
+  const totalAmount = cartAmount + estimatedDeliveryFee;
 
   const handleAddressSelect = (address) => {
     setSelectedAddress(address);
@@ -41,6 +84,7 @@ const OrderSummary = () => {
         {
           address: selectedAddress._id,
           items: cartItemsArray,
+          deliveryMode,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -141,6 +185,36 @@ const OrderSummary = () => {
         </div>
 
         <div>
+          <label className="text-base font-medium uppercase text-gray-600 block mb-2">Fulfillment</label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setDeliveryMode(DELIVERY_MODES.DELIVERY)}
+              className={`rounded-2xl border px-4 py-3 text-left transition ${
+                deliveryMode === DELIVERY_MODES.DELIVERY
+                  ? "border-orange-500 bg-orange-50 text-orange-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-orange-200"
+              }`}
+            >
+              <p className="font-medium">Delivery</p>
+              <p className="mt-1 text-xs text-gray-500">One rider will be assigned and must accept before contacts unlock.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeliveryMode(DELIVERY_MODES.PICKUP)}
+              className={`rounded-2xl border px-4 py-3 text-left transition ${
+                deliveryMode === DELIVERY_MODES.PICKUP
+                  ? "border-orange-500 bg-orange-50 text-orange-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-orange-200"
+              }`}
+            >
+              <p className="font-medium">Pickup</p>
+              <p className="mt-1 text-xs text-gray-500">Collect directly from the seller after they accept your order.</p>
+            </button>
+          </div>
+        </div>
+
+        <div>
           <label className="text-base font-medium uppercase text-gray-600 block mb-2">Promo Code</label>
           <div className="flex flex-col items-start gap-3">
             <input
@@ -160,17 +234,16 @@ const OrderSummary = () => {
             <p className="text-gray-800">{formatCurrency(cartAmount)}</p>
           </div>
           <div className="flex justify-between">
-            <p className="text-gray-600">Shipping Fee</p>
-            <p className="font-medium text-gray-800">Free</p>
-          </div>
-          <div className="flex justify-between">
-            <p className="text-gray-600">Tax (2%)</p>
-            <p className="font-medium text-gray-800">{formatCurrency(taxAmount)}</p>
+            <p className="text-gray-600">{deliveryMode === DELIVERY_MODES.PICKUP ? "Pickup Fee" : "Estimated Delivery Fee"}</p>
+            <p className="font-medium text-gray-800">{formatCurrency(estimatedDeliveryFee)}</p>
           </div>
           <div className="flex justify-between text-lg md:text-xl font-medium border-t pt-3">
             <p>Total</p>
             <p>{formatCurrency(totalAmount)}</p>
           </div>
+          <p className="text-xs text-gray-500">
+            Seller contact stays hidden until the seller accepts the order. Completed orders are confirmed inside the app.
+          </p>
         </div>
       </div>
 

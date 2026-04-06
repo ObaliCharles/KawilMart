@@ -15,43 +15,48 @@ const FeaturedProduct = ({ cards = defaultSiteContent.featuredCards }) => {
   }
 
   return (
-    <div className="mt-14">
+    <section className="mt-14">
       <div className="flex flex-col items-center">
-        <p className="text-3xl font-medium">Featured Products</p>
-        <div className="w-28 h-0.5 bg-orange-600 mt-2"></div>
+        <p className="text-3xl font-medium text-gray-900">Featured picks</p>
+        <div className="mt-2 h-0.5 w-28 bg-orange-600" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-14 mt-12 md:px-14 px-4">
+      <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {featuredCards.map((card, index) => {
           const ctaHref = card.productId ? `/product/${card.productId}` : (card.href || "/all-products");
 
           return (
-          <div key={card._id || index} className="relative group">
-            <Image
-              src={card.imageUrl}
-              alt={card.title}
-              className="group-hover:brightness-75 transition duration-300 w-full h-auto object-cover"
-              width={720}
-              height={900}
-            />
-            <div className="group-hover:-translate-y-4 transition duration-300 absolute bottom-8 left-8 text-white space-y-2">
-              <p className="font-medium text-xl lg:text-2xl">{card.title}</p>
-              <p className="text-sm lg:text-base leading-5 max-w-60">
-                {card.description}
-              </p>
-              <button
-                onClick={() => navigate(ctaHref)}
-                onMouseEnter={() => prefetchRoute(ctaHref)}
-                onFocus={() => prefetchRoute(ctaHref)}
-                className="flex items-center gap-1.5 bg-orange-600 px-4 py-2 rounded"
-              >
-                {card.buttonText || "Buy now"} <Image className="h-3 w-3" src={assets.redirect_icon} alt="Redirect Icon" />
-              </button>
+            <div key={card._id || index} className="group relative isolate min-h-[360px] overflow-hidden rounded-[2rem]">
+              <Image
+                src={card.imageUrl}
+                alt={card.title}
+                className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                width={720}
+                height={900}
+                sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+
+              <div className="relative flex h-full flex-col justify-end p-6 text-white sm:p-7">
+                <p className="text-2xl font-semibold leading-tight lg:text-[1.9rem]">{card.title}</p>
+                <p className="mt-3 max-w-sm text-sm leading-6 text-white/85 sm:text-base">
+                  {card.description}
+                </p>
+                <button
+                  onClick={() => navigate(ctaHref)}
+                  onMouseEnter={() => prefetchRoute(ctaHref)}
+                  onFocus={() => prefetchRoute(ctaHref)}
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-orange-600 px-5 py-3 text-sm font-semibold transition hover:bg-orange-700 sm:w-fit"
+                >
+                  {card.buttonText || "Buy now"}
+                  <Image className="h-3 w-3" src={assets.redirect_icon} alt="Redirect icon" />
+                </button>
+              </div>
             </div>
-          </div>
-        )})}
+          );
+        })}
       </div>
-    </div>
+    </section>
   );
 };
 

@@ -7,24 +7,13 @@ import Footer from "@/components/seller/Footer";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { OrdersManagementPageSkeleton } from "@/components/dashboard/DashboardSkeletons";
-
-const statusColors = {
-    'Order Placed': 'bg-blue-100 text-blue-700',
-    'Confirmed': 'bg-sky-100 text-sky-700',
-    'Preparing': 'bg-amber-100 text-amber-700',
-    'Processing': 'bg-yellow-100 text-yellow-700',
-    'Ready for Delivery': 'bg-cyan-100 text-cyan-700',
-    'Shipped': 'bg-purple-100 text-purple-700',
-    'Out for Delivery': 'bg-indigo-100 text-indigo-700',
-    'Delivered': 'bg-green-100 text-green-700',
-    'Cancelled': 'bg-red-100 text-red-700',
-};
-
-const paymentStatusColors = {
-    Pending: 'bg-amber-100 text-amber-700',
-    Paid: 'bg-green-100 text-green-700',
-    Failed: 'bg-red-100 text-red-700',
-};
+import {
+    getOrderStatusBadgeClass,
+    getOrderStatusDisplay,
+    getPaymentStatusBadgeClass,
+    getRiderAssignmentBadgeClass,
+} from "@/lib/orderUi";
+import { getOrderStatusLabel } from "@/lib/orderLifecycle";
 
 const paymentStatusOptions = ['Pending', 'Paid', 'Failed'];
 
@@ -33,13 +22,13 @@ const Orders = () => {
     const [orders, setOrders] = useState([]);
     const [riders, setRiders] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [updatingState, setUpdatingState] = useState({ orderId: null, field: '' });
+    const [updatingState, setUpdatingState] = useState({ orderId: "", field: "" });
 
     const fetchSellerOrders = async () => {
         try {
             const token = await getToken();
             const { data } = await axios.get('/api/order/seller-orders', {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
             });
 
             if (data.success) {
@@ -67,159 +56,185 @@ const Orders = () => {
             );
 
             if (data.success) {
-                setOrders((prevOrders) => prevOrders.map((order) => (
-                    order._id === orderId
-                        ? {
-                            ...order,
-                            riderId: data.order?.riderId || null,
-                            paymentStatus: data.order?.paymentStatus || 'Pending',
-                            trackingEvents: data.order?.trackingEvents || order.trackingEvents,
-                        }
-                        : order
-                )));
                 toast.success(data.message);
+                await fetchSellerOrders();
             } else {
                 toast.error(data.message);
             }
         } catch (error) {
             toast.error(error?.response?.data?.message || error.message || 'Failed to update order');
         } finally {
-            setUpdatingState({ orderId: null, field: '' });
+            setUpdatingState({ orderId: "", field: "" });
         }
     };
 
-    const updateOrderRider = async (orderId, riderId) => {
-        await updateOrder(orderId, { riderId }, 'rider');
-    };
-
-    const updatePaymentStatus = async (orderId, paymentStatus) => {
-        await updateOrder(orderId, { paymentStatus }, 'payment');
-    };
-
     useEffect(() => {
-        if (authReady && user) fetchSellerOrders();
+        if (authReady && user) {
+            void fetchSellerOrders();
+        }
     }, [authReady, user]);
 
     return (
         <div className="flex min-h-screen flex-1 flex-col justify-between text-sm">
-            {loading ? <div className="md:p-10 p-4"><OrdersManagementPageSkeleton /></div> : (
-                <div className="md:p-10 p-4 space-y-5">
+            {loading ? <div className="p-4 md:p-10"><OrdersManagementPageSkeleton /></div> : (
+                <div className="space-y-5 p-4 md:p-10">
                     <div>
                         <h2 className="text-lg font-medium">Orders</h2>
-                        <p className="text-sm text-gray-500 mt-1">
-                            Assign riders and manage payment statuses directly from your seller dashboard.
+                        <p className="mt-1 text-sm text-gray-500">
+                            Accept orders, move them through the lifecycle, assign riders, and unlock contact details only when appropriate.
                         </p>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+                    <div className="space-y-4">
                         {orders.length === 0 ? (
-                            <div className="p-10 text-center text-gray-400">
+                            <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-gray-400 shadow-sm">
                                 No orders yet
                             </div>
                         ) : orders.map((order) => {
                             const isUpdatingOrder = updatingState.orderId === order._id;
-                            const isUpdatingRider = isUpdatingOrder && updatingState.field === 'rider';
-                            const isUpdatingPayment = isUpdatingOrder && updatingState.field === 'payment';
 
                             return (
-                            <div
-                                key={order._id}
-                                className="grid grid-cols-1 gap-4 border-t border-gray-100 p-4 first:border-t-0 sm:p-5 xl:grid-cols-[1.5fr_1.1fr_0.75fr_0.9fr_1.05fr_0.75fr] xl:gap-5"
-                            >
-                                <div className="flex min-w-0 gap-3 sm:gap-4">
-                                    <Image
-                                        className="h-14 w-14 shrink-0 object-cover sm:h-16 sm:w-16"
-                                        src={assets.box_icon}
-                                        alt="box_icon"
-                                        width={64}
-                                        height={64}
-                                    />
-                                    <div className="min-w-0 space-y-2">
-                                        <p className="font-medium text-gray-900 break-words">
-                                            {order.items.map(item => `${item.product?.name || 'Deleted Product'} x ${item.quantity}`).join(", ")}
-                                        </p>
-                                        <p className="text-xs text-gray-500">
-                                            Order #{String(order._id).slice(-8).toUpperCase()}
-                                        </p>
-                                        <p className="text-xs text-gray-500">
-                                            Items: {order.items.reduce((sum, item) => sum + item.quantity, 0)}
-                                        </p>
+                                <div key={order._id} className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+                                    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.4fr_1fr_0.9fr_1fr]">
+                                        <div className="flex min-w-0 gap-4">
+                                            <Image
+                                                className="h-16 w-16 shrink-0 object-cover"
+                                                src={assets.box_icon}
+                                                alt="box_icon"
+                                                width={64}
+                                                height={64}
+                                            />
+                                            <div className="min-w-0 space-y-2">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <p className="font-medium text-gray-900 break-words">
+                                                        {order.items.map((item) => `${item.product?.name || 'Deleted Product'} x ${item.quantity}`).join(", ")}
+                                                    </p>
+                                                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${getOrderStatusBadgeClass(order.status)}`}>
+                                                        {getOrderStatusDisplay(order.status)}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-gray-500">
+                                                    Order #{String(order._id).slice(-8).toUpperCase()}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    {order.deliveryModeLabel} · {order.items.reduce((sum, item) => sum + item.quantity, 0)} items · Delivery fee {formatCurrency(order.deliveryFee)}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    Commission on completion: {formatCurrency(order.commissionAmount)}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2 text-sm text-gray-600">
+                                            <div>
+                                                <p className="font-medium text-gray-800">{order.address?.fullName || 'Customer'}</p>
+                                                <p>{order.address?.area || 'No area yet'}</p>
+                                                <p>{order.address ? `${order.address.city}, ${order.address.state}` : 'No location'}</p>
+                                            </div>
+                                            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3 text-xs">
+                                                <p className="font-semibold uppercase tracking-wide text-gray-400">Customer Contact</p>
+                                                <p className="mt-2 text-gray-700">
+                                                    {order.customerContactUnlocked
+                                                        ? (order.address?.phoneNumber || order.customerPhone || 'Phone not available')
+                                                        : 'Unlocks after you accept this order'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div className="rounded-2xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                                                <p className="font-semibold text-gray-900">{formatCurrency(order.amount)}</p>
+                                                <p>Subtotal: {formatCurrency(order.subtotal)}</p>
+                                                <p>Date: {new Date(order.date).toLocaleDateString()}</p>
+                                            </div>
+
+                                            <div>
+                                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                                    Payment Status
+                                                </p>
+                                                <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-medium ${getPaymentStatusBadgeClass(order.paymentStatus)}`}>
+                                                    {order.paymentStatus}
+                                                </span>
+                                                <select
+                                                    value={order.paymentStatus || 'Pending'}
+                                                    disabled={isUpdatingOrder}
+                                                    onChange={(event) => void updateOrder(order._id, { paymentStatus: event.target.value }, 'payment')}
+                                                    className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none"
+                                                >
+                                                    {paymentStatusOptions.map((status) => (
+                                                        <option key={status} value={status}>{status}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Rider Assignment</p>
+                                                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${getRiderAssignmentBadgeClass(order.riderAssignmentStatus, order.riderId)}`}>
+                                                        {order.riderAssignmentStatus}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-2 text-sm font-medium text-gray-900">{order.rider?.name || 'Not assigned yet'}</p>
+                                                <p className="text-xs text-gray-500">
+                                                    {order.rider?.phoneNumber || 'Rider contact appears after assignment'}
+                                                </p>
+
+                                                {order.actions?.canAssignRider ? (
+                                                    <select
+                                                        value={order.riderId || ''}
+                                                        disabled={isUpdatingOrder}
+                                                        onChange={(event) => void updateOrder(order._id, { riderId: event.target.value }, 'rider')}
+                                                        className="mt-3 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
+                                                    >
+                                                        <option value="">Unassigned</option>
+                                                        {riders.map((rider) => (
+                                                            <option
+                                                                key={rider.id}
+                                                                value={rider.id}
+                                                                disabled={!rider.isAvailable && rider.id !== order.riderId}
+                                                            >
+                                                                {rider.name}{rider.isAvailable ? '' : ' · Busy'}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <p className="mt-3 text-xs text-gray-500">
+                                                        Rider assignment becomes available after the order is accepted.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="text-sm text-gray-600">
-                                    <p className="font-medium text-gray-800">{order.address?.fullName || 'No name'}</p>
-                                    <p>{order.address?.area || 'No area'}</p>
-                                    <p>{order.address ? `${order.address.city}, ${order.address.state}` : 'No city'}</p>
-                                    <p>{order.address?.phoneNumber || 'No phone'}</p>
-                                </div>
-
-                                <div className="font-medium text-gray-800">
-                                    {formatCurrency(order.amount)}
-                                </div>
-
-                                <div className="text-sm text-gray-500">
-                                    <p>Method: COD</p>
-                                    <p>Date: {new Date(order.date).toLocaleDateString()}</p>
-                                    <div className="mt-3 space-y-2">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                            Payment Status
-                                        </p>
-                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${paymentStatusColors[order.paymentStatus || 'Pending'] || 'bg-gray-100 text-gray-600'}`}>
-                                            {order.paymentStatus || 'Pending'}
-                                        </span>
-                                        <select
-                                            value={order.paymentStatus || 'Pending'}
-                                            disabled={isUpdatingOrder}
-                                            onChange={(e) => updatePaymentStatus(order._id, e.target.value)}
-                                            className="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none"
-                                        >
-                                            {paymentStatusOptions.map((status) => (
-                                                <option key={status} value={status}>
-                                                    {status}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {isUpdatingPayment && (
-                                            <p className="text-xs text-amber-600">Saving payment status...</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                        Assign Rider
-                                    </p>
-                                    <select
-                                        value={order.riderId || ''}
-                                        disabled={isUpdatingOrder}
-                                        onChange={(e) => updateOrderRider(order._id, e.target.value)}
-                                        className="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
-                                    >
-                                        <option value="">Unassigned</option>
-                                        {riders.map((rider) => (
-                                            <option key={rider.id} value={rider.id}>
-                                                {rider.name}
-                                            </option>
+                                    <div className="mt-5 flex flex-wrap gap-2">
+                                        {(order.actions?.allowedNextStatuses || []).map((status) => (
+                                            <button
+                                                key={`${order._id}-${status}`}
+                                                onClick={() => void updateOrder(order._id, { status }, 'status')}
+                                                disabled={isUpdatingOrder}
+                                                className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                                                    status === 'FAILED'
+                                                        ? 'bg-red-50 text-red-700 hover:bg-red-100'
+                                                        : 'bg-orange-50 text-orange-700 hover:bg-orange-100'
+                                                } disabled:cursor-wait disabled:opacity-60`}
+                                            >
+                                                {isUpdatingOrder && updatingState.field === 'status' ? 'Saving...' : getOrderStatusLabel(status)}
+                                            </button>
                                         ))}
-                                    </select>
-                                    {isUpdatingRider ? (
-                                        <p className="text-xs text-amber-600">
-                                            Saving rider assignment...
-                                        </p>
-                                    ) : order.riderId ? (
-                                        <p className="text-xs text-gray-500">
-                                            Assigned
-                                        </p>
-                                    ) : null}
-                                </div>
+                                    </div>
 
-                                <div className="flex items-start xl:justify-end">
-                                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-600'}`}>
-                                        {order.status}
-                                    </span>
+                                    {order.riskFlags?.length > 0 && (
+                                        <div className="mt-4 flex flex-wrap gap-2">
+                                            {order.riskFlags.map((flag) => (
+                                                <span key={`${order._id}-${flag}`} className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+                                                    {flag.replace(/_/g, ' ')}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
                             );
                         })}
                     </div>

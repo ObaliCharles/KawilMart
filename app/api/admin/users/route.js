@@ -37,6 +37,7 @@ export async function GET(request) {
             vehicleType: dbMap[u.id]?.vehicleType,
             licensePlate: dbMap[u.id]?.licensePlate,
             driversLicense: dbMap[u.id]?.driversLicense,
+            riderAvailability: dbMap[u.id]?.riderAvailability || 'available',
             isVerified: dbMap[u.id]?.isVerified || false,
             notifications: dbMap[u.id]?.notifications || [],
             messages: dbMap[u.id]?.messages || [],

@@ -4,6 +4,7 @@ import { useAppContext } from '@/context/AppContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { AdminDashboardPageSkeleton } from '@/components/dashboard/DashboardSkeletons';
+import { getOrderStatusBadgeClass, getOrderStatusDisplay } from '@/lib/orderUi';
 
 const StatCard = ({ icon, label, value, sub, color, valueClassName = '' }) => (
     <div className={`bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex items-center gap-3 sm:p-5 sm:gap-4`}>
@@ -17,14 +18,6 @@ const StatCard = ({ icon, label, value, sub, color, valueClassName = '' }) => (
         </div>
     </div>
 );
-
-const statusColors = {
-    'Order Placed': 'bg-blue-100 text-blue-700',
-    'Processing': 'bg-yellow-100 text-yellow-700',
-    'Shipped': 'bg-purple-100 text-purple-700',
-    'Delivered': 'bg-green-100 text-green-700',
-    'Cancelled': 'bg-red-100 text-red-700',
-};
 
 export default function AdminDashboard() {
     const { getToken, user, authReady, formatCurrency, formatCompactCurrency } = useAppContext();
@@ -78,7 +71,7 @@ export default function AdminDashboard() {
                     icon="💰"
                     label="Total Revenue"
                     value={formatCurrency(stats.totalRevenue)}
-                    sub="All time earnings"
+                    sub={`${stats.completedOrders || 0} completed orders`}
                     color="bg-green-50"
                     valueClassName="text-[15px] break-words sm:text-2xl"
                 />
@@ -86,7 +79,7 @@ export default function AdminDashboard() {
                     icon="📦"
                     label="Total Orders"
                     value={stats.totalOrders.toLocaleString()}
-                    sub={`${stats.statusCounts['Order Placed'] || 0} pending`}
+                    sub={`${stats.flaggedSellers || 0} flagged sellers`}
                     color="bg-blue-50"
                 />
                 <StatCard
@@ -133,8 +126,8 @@ export default function AdminDashboard() {
                     <div className="space-y-3">
                         {Object.entries(stats.statusCounts).map(([status, count]) => (
                             <div key={status} className="flex items-center justify-between">
-                                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[status] || 'bg-gray-100 text-gray-600'}`}>
-                                    {status}
+                                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getOrderStatusBadgeClass(status)}`}>
+                                    {getOrderStatusDisplay(status)}
                                 </span>
                                 <div className="flex items-center gap-2">
                                     <div className="w-20 h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -188,8 +181,8 @@ export default function AdminDashboard() {
                                         {formatCurrency(order.amount)}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[order.status] || 'bg-gray-100 text-gray-600'}`}>
-                                            {order.status}
+                                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getOrderStatusBadgeClass(order.status)}`}>
+                                            {getOrderStatusDisplay(order.status)}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-gray-500">
