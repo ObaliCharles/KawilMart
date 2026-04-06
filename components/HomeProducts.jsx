@@ -13,6 +13,7 @@ import {
   homeCategoryValues,
   homeOfferCollectionValues,
 } from "@/lib/marketplaceCategories";
+import { sortProductsForLiveShowcase } from "@/lib/liveCommerce";
 
 const PRODUCT_BATCH_SIZE = 10;
 const HOME_PRODUCT_LIMIT = 30;
@@ -148,23 +149,7 @@ const HomeProducts = () => {
 
   const { products, loadingProducts, navigate, prefetchRoute, formatCurrency } = useAppContext()
 
-  const promotionPriority = (product) => {
-    if (product.isFlashDeal || product.promotionType === "flash_deal") return 0
-    if (product.promotionType === "featured") return 1
-    if (product.promotionType === "discount") return 2
-    return 3
-  }
-
-  const featuredProducts = [...products]
-    .sort((a, b) => {
-      const promotionDiff = promotionPriority(a) - promotionPriority(b)
-      if (promotionDiff !== 0) {
-        return promotionDiff
-      }
-
-      return (b.date || 0) - (a.date || 0)
-    })
-    .slice(0, HOME_PRODUCT_LIMIT)
+  const featuredProducts = sortProductsForLiveShowcase(products).slice(0, HOME_PRODUCT_LIMIT)
 
   const categorySections = homeOfferCollectionValues
     .map((categoryValue) => {
@@ -200,9 +185,9 @@ const HomeProducts = () => {
   return (
     <div className="flex flex-col items-center pt-14">
       <div className="w-full">
-        <p className="text-2xl font-semibold text-gray-900">Popular products</p>
+        <p className="text-2xl font-semibold text-gray-900">Hot right now</p>
         <p className="mt-1 text-sm text-gray-500">
-          A cleaner homepage feed with category edits inserted between product batches.
+          A live mix of fast-moving favorites, fresh arrivals, and flash deals rotating through the homepage.
         </p>
       </div>
 

@@ -3,6 +3,16 @@ import Address from "@/models/Address";
 import Product from "@/models/Product";
 import Order from "@/models/Order";
 import User from "@/models/User";
+import {
+  DEFAULT_COMMISSION_RATE,
+  DELIVERY_MODES,
+  ORDER_STATUSES,
+  RIDER_ASSIGNMENT_STATUSES,
+  buildOrderFinancials,
+  calculateDeliveryFee,
+  getDeliveryModeLabel,
+  normalizeDeliveryMode,
+} from "@/lib/orderLifecycle";
 import { getRequestUserId } from "@/lib/requestAuth";
 import { NextResponse } from "next/server";
 import { inngest } from "@/config/inngest";
@@ -39,13 +49,15 @@ export async function POST(request) {
   try {
     await connectDB();
     const userId = await getRequestUserId(request);
-    const { address, items } = await request.json();
+    const { address, items, deliveryMode } = await request.json();
 
     if (!userId) return NextResponse.json({ success: false, message: "No userId found" });
     if (!address) return NextResponse.json({ success: false, message: "No address provided" });
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ success: false, message: "Cart is empty" });
     }
+
+    const normalizedDeliveryMode = normalizeDeliveryMode(deliveryMode);
 
     const addressDoc = await Address.findById(address);
     if (!addressDoc) {
@@ -72,11 +84,12 @@ export async function POST(request) {
 
       const sellerBucket = sellerOrders.get(sellerId) || {
         sellerId,
-        amount: 0,
+        subtotal: 0,
         items: [],
+        sellerLocation: product.sellerLocation || product.location || "",
       };
 
-      sellerBucket.amount += price * quantity;
+      sellerBucket.subtotal += price * quantity;
       sellerBucket.items.push({
         product: product._id.toString(),
         quantity,
@@ -87,19 +100,40 @@ export async function POST(request) {
     }
 
     const orderPayloads = Array.from(sellerOrders.values())
-      .filter(({ items: groupedItems, amount, sellerId }) =>
-        sellerId && groupedItems.length > 0 && amount > 0
+      .filter(({ items: groupedItems, subtotal, sellerId }) =>
+        sellerId && groupedItems.length > 0 && subtotal > 0
       )
-      .map(({ sellerId, items: groupedItems, amount }) => ({
-        userId,
-        sellerId,
-        items: groupedItems,
-        amount: Math.floor(amount + amount * 0.02),
-        address,
-        customerPhone: addressDoc.phoneNumber || "",
-        trackingEvents: [createStatusTrackingEvent('Order Placed')],
-        date: Date.now(),
-      }));
+      .map(({ sellerId, items: groupedItems, subtotal, sellerLocation }) => {
+        const deliveryFee = calculateDeliveryFee({
+          deliveryMode: normalizedDeliveryMode,
+          sellerLocation,
+          address: addressDoc,
+        });
+        const financials = buildOrderFinancials({
+          subtotal,
+          deliveryFee,
+          commissionRate: DEFAULT_COMMISSION_RATE,
+        });
+
+        return {
+          userId,
+          sellerId,
+          items: groupedItems,
+          subtotal: financials.subtotal,
+          amount: financials.amount,
+          deliveryFee: financials.deliveryFee,
+          commissionRate: financials.commissionRate,
+          commissionAmount: financials.commissionAmount,
+          address,
+          deliveryMode: normalizedDeliveryMode,
+          deliveryRequired: normalizedDeliveryMode === DELIVERY_MODES.DELIVERY,
+          riderAssignmentStatus: RIDER_ASSIGNMENT_STATUSES.UNASSIGNED,
+          customerPhone: addressDoc.phoneNumber || "",
+          status: ORDER_STATUSES.PLACED,
+          trackingEvents: [createStatusTrackingEvent(ORDER_STATUSES.PLACED)],
+          date: Date.now(),
+        };
+      });
 
     if (orderPayloads.length === 0) {
       return NextResponse.json({ success: false, message: "No valid products found" });
@@ -116,6 +150,7 @@ export async function POST(request) {
     });
 
     const totalAmount = createdOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
+    const totalDeliveryFee = createdOrders.reduce((sum, order) => sum + (order.deliveryFee || 0), 0);
     const customerName = addressDoc.fullName || "Customer";
 
     const customerNotificationEntry = {
@@ -128,13 +163,14 @@ export async function POST(request) {
         date: new Date(),
       },
       emailTitle: createdOrders.length > 1 ? "Your KawilMart orders were placed" : "Your KawilMart order was placed",
-      emailMessage: `We have received your order for ${totalItems} item${totalItems === 1 ? "" : "s"} totaling ${formatCurrency(totalAmount)}. You can track progress from your orders page.`,
+      emailMessage: `We received your ${getDeliveryModeLabel(normalizedDeliveryMode)} order for ${totalItems} item${totalItems === 1 ? "" : "s"} totaling ${formatCurrency(totalAmount)}. You can track progress from your orders page.`,
       ctaLabel: "Track my order",
       ctaPath: "/my-orders",
       emailDetails: [
         { label: "orders", value: String(createdOrders.length) },
         { label: "items", value: String(totalItems) },
         { label: "total", value: formatCurrency(totalAmount) },
+        { label: "delivery_fee", value: formatCurrency(totalDeliveryFee) },
       ],
     };
 
@@ -175,6 +211,7 @@ export async function POST(request) {
       success: true,
       message: createdOrders.length > 1 ? "Orders placed successfully" : "Order placed successfully",
       orderCount: createdOrders.length,
+      deliveryMode: normalizedDeliveryMode,
     });
   } catch (error) {
     console.error("Order API error:", error);

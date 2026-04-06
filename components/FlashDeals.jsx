@@ -3,6 +3,7 @@ import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import Image from "next/image";
+import { getProductActivitySnapshot } from "@/lib/liveCommerce";
 
 const FlashDeals = () => {
   const { products, formatCurrency, navigate, prefetchRoute, setIsRouteLoading } = useAppContext();
@@ -60,6 +61,7 @@ const FlashDeals = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {flashDeals.map((product) => {
           const discount = Math.round(((product.price - product.offerPrice) / product.price) * 100);
+          const activity = getProductActivitySnapshot(product);
           return (
             <div
               key={product._id}
@@ -100,6 +102,9 @@ const FlashDeals = () => {
                     />
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">🔥 {Math.min(90, 30 + discount)}% claimed</p>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    {activity.viewersNow} viewing now · {activity.soldToday} sold today
+                  </p>
                 </div>
               </div>
             </div>

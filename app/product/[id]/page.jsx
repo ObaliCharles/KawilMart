@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { assets } from "@/assets/assets";
 import ProductCard from "@/components/ProductCard";
 import Navbar from "@/components/Navbar";
@@ -10,6 +10,8 @@ import { useAppContext } from "@/context/AppContext";
 import React from "react";
 import ProductRating from "@/components/ProductRating";
 import { ProductDetailSkeleton } from "@/components/PageSkeletons";
+import ProductActivityChips from "@/components/ProductActivityChips";
+import { getLocationLabel, getProductActivitySnapshot, sortProductsForLiveShowcase } from "@/lib/liveCommerce";
 
 const Product = () => {
 
@@ -21,6 +23,8 @@ const Product = () => {
     const [productData, setProductData] = useState(null);
     const [liking, setLiking] = useState(false);
     const [cartAction, setCartAction] = useState(null);
+    const [addedFeedback, setAddedFeedback] = useState(false);
+    const feedbackTimeoutRef = useRef(null);
 
     const fetchProductData = async () => {
         const product = products.find(product => product._id === id);
@@ -49,8 +53,19 @@ const Product = () => {
         }
 
         setCartAction('add');
-        await addToCart(productData._id);
+        const result = await addToCart(productData._id);
         setCartAction(null);
+
+        if (result?.success) {
+            setAddedFeedback(true);
+            if (feedbackTimeoutRef.current) {
+                window.clearTimeout(feedbackTimeoutRef.current);
+            }
+
+            feedbackTimeoutRef.current = window.setTimeout(() => {
+                setAddedFeedback(false);
+            }, 1400);
+        }
     };
 
     const handleBuyNow = async () => {
@@ -67,6 +82,19 @@ const Product = () => {
             setCartAction(null);
         }
     };
+
+    const productActivity = productData ? getProductActivitySnapshot(productData) : null;
+    const relatedProducts = sortProductsForLiveShowcase(
+        products.filter((product) => product._id !== id)
+    ).slice(0, 5);
+
+    useEffect(() => {
+        return () => {
+            if (feedbackTimeoutRef.current) {
+                window.clearTimeout(feedbackTimeoutRef.current);
+            }
+        };
+    }, []);
 
     return productData ? (<>
         <Navbar />
@@ -120,6 +148,7 @@ const Product = () => {
                         </button>
                     </div>
                     <ProductRating product={productData} size="lg" />
+                    <ProductActivityChips product={productData} maxItems={4} className="mt-4" />
                     <p className="text-gray-600 mt-3">
                         {productData.description}
                     </p>
@@ -157,6 +186,23 @@ const Product = () => {
                         </table>
                     </div>
 
+                    {productActivity ? (
+                        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                            <div className="rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500">Viewing now</p>
+                                <p className="mt-1 text-lg font-semibold text-gray-900">{productActivity.viewersNow}</p>
+                            </div>
+                            <div className="rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500">Sold today</p>
+                                <p className="mt-1 text-lg font-semibold text-gray-900">{productActivity.soldToday}</p>
+                            </div>
+                            <div className="rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500">Local trend</p>
+                                <p className="mt-1 text-lg font-semibold text-gray-900">{productActivity.localTrend}</p>
+                            </div>
+                        </div>
+                    ) : null}
+
                     {/* Seller Information */}
                     <div className="mt-8 rounded-lg bg-blue-50 p-4">
                         <h3 className="text-lg font-medium text-gray-800 mb-3">Seller Information</h3>
@@ -164,6 +210,7 @@ const Product = () => {
                             <p><strong>Contact:</strong> {productData.sellerContact}</p>
                             <p><strong>Business Location:</strong> {productData.sellerLocation}</p>
                             <p><strong>Product Location:</strong> {productData.location}</p>
+                            <p><strong>Trending near:</strong> {getLocationLabel(productData.sellerLocation || productData.location)}</p>
                         </div>
                     </div>
 
@@ -204,10 +251,12 @@ const Product = () => {
                             className={`w-full rounded-lg py-3.5 transition ${
                                 cartAction
                                     ? 'cursor-wait bg-gray-200 text-gray-500'
-                                    : 'bg-gray-100 text-gray-800/80 hover:bg-gray-200'
+                                    : addedFeedback
+                                        ? 'bg-emerald-50 text-emerald-700'
+                                        : 'bg-gray-100 text-gray-800/80 hover:bg-gray-200'
                             }`}
                         >
-                            {cartAction === 'add' ? 'Adding...' : 'Add to Cart'}
+                            {cartAction === 'add' ? 'Adding...' : addedFeedback ? 'Added ✓' : 'Add to Cart'}
                         </button>
                         <button
                             onClick={handleBuyNow}
@@ -225,11 +274,11 @@ const Product = () => {
             </div>
             <div className="flex flex-col items-center">
                 <div className="flex flex-col items-center mb-4 mt-16">
-                    <p className="text-center text-2xl font-medium sm:text-3xl">Featured <span className="font-medium text-orange-600">Products</span></p>
+                    <p className="text-center text-2xl font-medium sm:text-3xl">Hot <span className="font-medium text-orange-600">Right Now</span></p>
                     <div className="w-28 h-0.5 bg-orange-600 mt-2"></div>
                 </div>
                 <div className="mt-6 grid w-full grid-cols-2 gap-4 pb-14 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 xl:gap-6">
-                    {products.slice(0, 5).map((product, index) => <ProductCard key={index} product={product} />)}
+                    {relatedProducts.map((product) => <ProductCard key={product._id} product={product} />)}
                 </div>
                 <button
                     onClick={() => navigate('/all-products')}

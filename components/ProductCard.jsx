@@ -1,9 +1,10 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { assets } from '@/assets/assets'
 import Image from 'next/image';
 import { useAppContext } from '@/context/AppContext';
 import ProductRating from './ProductRating';
+import ProductActivityChips from './ProductActivityChips';
 
 // Simulate shop locations (in real system this comes from seller's profile)
 const shopLocations = [
@@ -29,7 +30,7 @@ const getPromotionBadge = (product) => {
         return { label: 'Featured', className: 'bg-blue-100 text-blue-700' };
     }
 
-    return { label: 'Normal', className: 'bg-gray-100 text-gray-600' };
+    return null;
 };
 
 const ProductCard = ({ product }) => {
@@ -37,6 +38,8 @@ const ProductCard = ({ product }) => {
     const productHref = `/product/${product._id}`;
     const [liking, setLiking] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
+    const [addedFeedback, setAddedFeedback] = useState(false);
+    const feedbackTimeoutRef = useRef(null);
 
     const discountPercent = product.price && product.price > product.offerPrice
       ? Math.round(((product.price - product.offerPrice) / product.price) * 100)
@@ -65,9 +68,28 @@ const ProductCard = ({ product }) => {
         }
 
         setIsAdding(true);
-        await addToCart(product._id);
+        const result = await addToCart(product._id);
         setIsAdding(false);
+
+        if (result?.success) {
+            setAddedFeedback(true);
+            if (feedbackTimeoutRef.current) {
+                window.clearTimeout(feedbackTimeoutRef.current);
+            }
+
+            feedbackTimeoutRef.current = window.setTimeout(() => {
+                setAddedFeedback(false);
+            }, 1400);
+        }
     };
+
+    useEffect(() => {
+        return () => {
+            if (feedbackTimeoutRef.current) {
+                window.clearTimeout(feedbackTimeoutRef.current);
+            }
+        };
+    }, []);
 
     return (
         <div
@@ -117,9 +139,12 @@ const ProductCard = ({ product }) => {
             <p className="w-full pt-2 text-sm font-medium leading-5 text-gray-900 sm:text-base">
                 {product.name}
             </p>
-            <div className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${promotionBadge.className}`}>
-              {promotionBadge.label}
-            </div>
+            {promotionBadge ? (
+              <div className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${promotionBadge.className}`}>
+                {promotionBadge.label}
+              </div>
+            ) : null}
+            <ProductActivityChips product={product} compact maxItems={2} className="pt-1" />
             <p className="hidden w-full text-xs text-gray-500/70 sm:block">
                 {product.description}
             </p>
@@ -142,11 +167,15 @@ const ProductCard = ({ product }) => {
                 <button
                   onClick={handleAddToCart}
                   disabled={isAdding}
-                  className={`w-full rounded-full border border-orange-600 px-3 py-2 text-xs font-medium text-white transition sm:w-auto sm:px-4 sm:py-1.5 ${
-                    isAdding ? 'cursor-wait bg-orange-500 opacity-75' : 'bg-orange-600 hover:bg-orange-700'
+                  className={`w-full rounded-full border px-3 py-2 text-xs font-medium transition sm:w-auto sm:px-4 sm:py-1.5 ${
+                    isAdding
+                      ? 'cursor-wait border-orange-500 bg-orange-500 text-white opacity-75'
+                      : addedFeedback
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-orange-600 bg-orange-600 text-white hover:bg-orange-700'
                   }`}
                 >
-                    {isAdding ? 'Adding...' : 'Add to Cart'}
+                    {isAdding ? 'Adding...' : addedFeedback ? 'Added ✓' : 'Add to Cart'}
                 </button>
             </div>
         </div>
