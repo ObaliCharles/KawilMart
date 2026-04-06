@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import ClerkAvatarImage from '@/components/ClerkAvatarImage';
 import { AdminManagementPageSkeleton } from '@/components/dashboard/DashboardSkeletons';
@@ -111,6 +112,8 @@ const normalizeDateInput = (value) => {
 
     return date.toISOString().slice(0, 10);
 };
+
+const getManagementTab = (value) => (value === 'rider' ? 'rider' : 'seller');
 
 const formatDateTime = (value) => {
     if (!value) {
@@ -285,11 +288,14 @@ const TabButton = ({ active, onClick, children, badge }) => (
 );
 
 export default function AdminManagement() {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { getToken, user, authReady, formatCurrency } = useAppContext();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState('seller');
+    const [activeTab, setActiveTab] = useState(() => getManagementTab(searchParams.get('tab')));
     const [selectedEntityId, setSelectedEntityId] = useState('');
     const [entityDraft, setEntityDraft] = useState(emptyManagementDraft);
     const [saving, setSaving] = useState(false);
@@ -297,6 +303,17 @@ export default function AdminManagement() {
     const [supportLoading, setSupportLoading] = useState(false);
     const [supportDraft, setSupportDraft] = useState({ subject: '', content: '' });
     const [sendingSupport, setSendingSupport] = useState(false);
+
+    const handleTabChange = (nextTab) => {
+        const resolvedTab = getManagementTab(nextTab);
+        setActiveTab(resolvedTab);
+        setSearchQuery('');
+        setSupportDraft({ subject: '', content: '' });
+
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('tab', resolvedTab);
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    };
 
     const fetchUsers = async (preferredId) => {
         try {
@@ -356,6 +373,13 @@ export default function AdminManagement() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authReady, user]);
 
+    useEffect(() => {
+        const requestedTab = getManagementTab(searchParams.get('tab'));
+        if (requestedTab !== activeTab) {
+            setActiveTab(requestedTab);
+        }
+    }, [activeTab, searchParams]);
+
     const currentTabConfig = MANAGEMENT_TABS[activeTab];
 
     const tabEntities = useMemo(() => (
@@ -402,6 +426,7 @@ export default function AdminManagement() {
             setSelectedEntityId('');
             setEntityDraft(emptyManagementDraft);
             setSupportMessages([]);
+            setSupportDraft({ subject: '', content: '' });
             return;
         }
 
@@ -410,6 +435,7 @@ export default function AdminManagement() {
         }
 
         setEntityDraft(buildManagementDraft(selectedEntity));
+        setSupportDraft({ subject: '', content: '' });
         void fetchSupportThread(selectedEntity.id);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedEntity?.id, activeTab]);
@@ -578,14 +604,14 @@ export default function AdminManagement() {
                 <div className="flex flex-wrap gap-3">
                     <TabButton
                         active={activeTab === 'seller'}
-                        onClick={() => setActiveTab('seller')}
+                        onClick={() => handleTabChange('seller')}
                         badge={users.filter((entry) => entry.role === 'seller').length || undefined}
                     >
                         Sellers
                     </TabButton>
                     <TabButton
                         active={activeTab === 'rider'}
-                        onClick={() => setActiveTab('rider')}
+                        onClick={() => handleTabChange('rider')}
                         badge={users.filter((entry) => entry.role === 'rider').length || undefined}
                     >
                         Riders

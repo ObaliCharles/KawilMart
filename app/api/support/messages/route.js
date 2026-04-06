@@ -14,11 +14,37 @@ import {
 
 const normalizeString = (value) => (typeof value === "string" ? value.trim() : "");
 
+const ensureMessageThread = (user) => {
+    if (!user) {
+        return;
+    }
+
+    if (!Array.isArray(user.messages)) {
+        user.messages = [];
+    }
+};
+
+const inferSupportRole = (user = {}, isAdmin = false) => {
+    if (isAdmin) {
+        return "admin";
+    }
+
+    if (user?.businessName) {
+        return "seller";
+    }
+
+    if (user?.vehicleType || user?.riderBaseLocation) {
+        return "rider";
+    }
+
+    return "buyer";
+};
+
 const getSupportParticipant = ({ isAdmin, targetUser = null }) => {
     if (isAdmin) {
         return {
             id: String(targetUser?._id || ""),
-            name: targetUser?.businessName || targetUser?.name || "Seller",
+            name: targetUser?.businessName || targetUser?.name || "Account",
             email: targetUser?.email || "",
             imageUrl: targetUser?.imageUrl || "",
             isVerified: Boolean(targetUser?.isVerified),
@@ -51,16 +77,18 @@ export async function GET(request) {
         const targetUserId = isAdmin ? participantId : currentUserId;
 
         if (!targetUserId) {
-            return NextResponse.json({ success: false, message: "Select a seller to open support chat" }, { status: 400 });
+            return NextResponse.json({ success: false, message: "Select an account to open support chat" }, { status: 400 });
         }
 
         await connectDB();
-        await syncUserFromClerk(targetUserId);
+        await Promise.allSettled([syncUserFromClerk(currentUserId), syncUserFromClerk(targetUserId)]);
 
         const targetUser = await User.findById(targetUserId);
         if (!targetUser) {
             return NextResponse.json({ success: false, message: "Support thread not found" }, { status: 404 });
         }
+
+        ensureMessageThread(targetUser);
 
         let messagesChanged = false;
         const supportMessages = sortMessagesByDate(
@@ -125,11 +153,13 @@ export async function POST(request) {
             return NextResponse.json({ success: false, message: "Support recipient not found" }, { status: 404 });
         }
 
+        ensureMessageThread(targetUser);
+
         const messageRecord = createSupportMessageRecord({
             senderId: currentUserId,
             recipientId: isAdmin ? targetUserId : "support",
             ownerUserId: targetUserId,
-            senderRole: isAdmin ? "admin" : (targetUser?.businessName ? "seller" : "buyer"),
+            senderRole: inferSupportRole(senderUser || targetUser, isAdmin),
             senderLabel: senderUser?.businessName || senderUser?.name || (isAdmin ? "KawilMart Support" : "Customer"),
             subject: safeSubject || (isAdmin ? "Support reply" : "Support request"),
             content: safeContent,
