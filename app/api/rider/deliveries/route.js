@@ -211,6 +211,19 @@ export async function PUT(request) {
                         ctaLabel: "Track order",
                         ctaPath: "/my-orders",
                     });
+                    if (order.sellerId) {
+                        outboundNotifications.push({
+                            userId: order.sellerId,
+                            notification: getNotification(
+                                "Rider accepted delivery",
+                                `Order #${formatShortOrderId(order._id)} now has a confirmed rider.`
+                            ),
+                            emailTitle: `Rider accepted delivery: #${formatShortOrderId(order._id)}`,
+                            emailMessage: `The assigned rider accepted delivery for order #${formatShortOrderId(order._id)}. Open your seller dashboard to prepare the handoff.`,
+                            ctaLabel: "Open seller orders",
+                            ctaPath: "/seller/orders",
+                        });
+                    }
                 }
 
                 if (assignmentResponse.trim().toUpperCase() === "DECLINE") {

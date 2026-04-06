@@ -1,3 +1,4 @@
+import { clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import authAdmin from "@/lib/authAdmin";
 import connectDB from "@/config/db";
@@ -38,6 +39,18 @@ const inferSupportRole = (user = {}, isAdmin = false) => {
     }
 
     return "buyer";
+};
+
+const getSupportInboxPath = (role = "") => {
+    if (role === "rider") {
+        return "/admin/management?tab=rider";
+    }
+
+    if (role === "seller") {
+        return "/admin/management?tab=seller";
+    }
+
+    return "/admin/management";
 };
 
 const getSupportParticipant = ({ isAdmin, targetUser = null }) => {
@@ -185,6 +198,33 @@ export async function POST(request) {
                     ctaPath: "/inbox?tab=support",
                 },
             ]);
+        } else {
+            const client = await clerkClient();
+            const clerkUsers = await client.users.getUserList({ limit: 100 });
+            const adminIds = clerkUsers.data
+                .filter((user) => (user.publicMetadata?.role || user.metadata?.role) === "admin")
+                .map((user) => user.id)
+                .filter(Boolean);
+            const senderRole = inferSupportRole(senderUser || targetUser, false);
+            const senderLabel = senderUser?.businessName || senderUser?.name || "A customer";
+            const preview = safeContent.length > 120 ? `${safeContent.slice(0, 120)}...` : safeContent;
+
+            if (adminIds.length > 0) {
+                await notifyUsers(adminIds.map((adminId) => ({
+                    userId: adminId,
+                    notification: {
+                        type: "support",
+                        title: safeSubject || "New support request",
+                        message: `${senderLabel}: ${preview}`,
+                        read: false,
+                        date: new Date(),
+                    },
+                    emailTitle: safeSubject || `New support request from ${senderLabel}`,
+                    emailMessage: `${senderLabel} sent a new support request: ${safeContent}`,
+                    ctaLabel: "Open support queue",
+                    ctaPath: getSupportInboxPath(senderRole),
+                })));
+            }
         }
 
         return NextResponse.json({

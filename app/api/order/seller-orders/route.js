@@ -189,6 +189,20 @@ export async function PUT(request) {
             }
           }
 
+          if (previousRiderId && previousRiderId !== nextRiderId) {
+            outboundNotifications.push({
+              userId: previousRiderId,
+              notification: getRiderNotification(
+                "Delivery reassigned",
+                `Order #${formatShortOrderId(order._id)} is no longer assigned to you.`
+              ),
+              emailTitle: `Delivery reassigned: #${formatShortOrderId(order._id)}`,
+              emailMessage: `Order #${formatShortOrderId(order._id)} was reassigned to another rider.`,
+              ctaLabel: "Open rider dashboard",
+              ctaPath: "/dashboard/rider",
+            });
+          }
+
           order.trackingEvents = [
             ...(order.trackingEvents || []),
             createRiderAssignmentTrackingEvent({ assigned: true }),
@@ -217,6 +231,20 @@ export async function PUT(request) {
               previousRiderUser.riderAvailability = "available";
               touchedDocs.push(previousRiderUser);
             }
+          }
+
+          if (previousRiderId) {
+            outboundNotifications.push({
+              userId: previousRiderId,
+              notification: getRiderNotification(
+                "Delivery removed",
+                `Order #${formatShortOrderId(order._id)} is no longer assigned to you.`
+              ),
+              emailTitle: `Delivery removed: #${formatShortOrderId(order._id)}`,
+              emailMessage: `Order #${formatShortOrderId(order._id)} was removed from your delivery queue.`,
+              ctaLabel: "Open rider dashboard",
+              ctaPath: "/dashboard/rider",
+            });
           }
 
           order.trackingEvents = [
@@ -253,6 +281,20 @@ export async function PUT(request) {
             ),
             emailTitle: `Order ready for pickup: #${formatShortOrderId(order._id)}`,
             emailMessage: `Order #${formatShortOrderId(order._id)} is ready for pickup. Open your rider dashboard to continue the delivery flow.`,
+            ctaLabel: "Open rider dashboard",
+            ctaPath: "/dashboard/rider",
+          });
+        }
+
+        if ([ORDER_STATUSES.FAILED, ORDER_STATUSES.CANCELLED].includes(transition.nextStatus) && order.riderId) {
+          outboundNotifications.push({
+            userId: order.riderId,
+            notification: getRiderNotification(
+              transition.nextStatus === ORDER_STATUSES.CANCELLED ? "Delivery cancelled" : "Delivery closed",
+              `Order #${formatShortOrderId(order._id)} is no longer active for delivery.`
+            ),
+            emailTitle: `${transition.nextStatus === ORDER_STATUSES.CANCELLED ? "Delivery cancelled" : "Delivery closed"}: #${formatShortOrderId(order._id)}`,
+            emailMessage: `Order #${formatShortOrderId(order._id)} is no longer active for delivery after a seller status update.`,
             ctaLabel: "Open rider dashboard",
             ctaPath: "/dashboard/rider",
           });

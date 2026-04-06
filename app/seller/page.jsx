@@ -29,6 +29,30 @@ const MetricCard = ({ icon, label, value, sub, color, valueClassName = '' }) => 
   </div>
 );
 
+const invoiceStatusClasses = {
+  issued: 'bg-sky-50 text-sky-700',
+  paid: 'bg-emerald-50 text-emerald-700',
+  overdue: 'bg-red-50 text-red-700',
+  void: 'bg-slate-100 text-slate-700',
+};
+
+const formatDateLabel = (value) => {
+  if (!value) {
+    return 'Not set';
+  }
+
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    return 'Not set';
+  }
+
+  return date.toLocaleDateString('en-UG', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
 const SellerOverviewSkeleton = () => (
   <div className="space-y-6" aria-hidden="true">
     <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-orange-200 via-orange-100 to-amber-100 p-6 md:p-8">
@@ -261,6 +285,8 @@ const AddProductInner = () => {
   const paymentEntries = Object.entries(dashboardStats?.paymentCounts || {}).sort((a, b) => b[1] - a[1]);
   const totalOrders = dashboardStats?.totalOrders || 0;
   const totalProducts = dashboardStats?.totalProducts || 0;
+  const invoiceHistory = dashboardStats?.invoices || [];
+  const invoiceSummary = dashboardStats?.invoiceSummary || {};
 
   return (
     <div className="flex min-h-screen flex-1 flex-col justify-between">
@@ -456,6 +482,76 @@ const AddProductInner = () => {
                         {dashboardStats.risk?.flagged ? 'Monitoring required' : 'Healthy'}
                       </span>
                     </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+                <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h2 className="font-semibold text-gray-900">Issued Invoices</h2>
+                      <p className="mt-1 text-sm text-gray-500">Month-end billing records for subscription and sales commission.</p>
+                    </div>
+                    <Link
+                      href="/inbox?tab=support"
+                      className="text-sm font-medium text-orange-600 transition hover:text-orange-700"
+                    >
+                      Need billing help?
+                    </Link>
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    {invoiceHistory.length ? invoiceHistory.map((invoice) => (
+                      <div key={invoice.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-semibold text-gray-900">{invoice.invoiceNumber}</p>
+                              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${invoiceStatusClasses[invoice.status] || invoiceStatusClasses.issued}`}>
+                                {invoice.status}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-sm text-gray-500">
+                              {invoice.periodLabel} · Due {formatDateLabel(invoice.dueAt)}
+                            </p>
+                            <p className="mt-2 text-xs text-gray-500">
+                              Subscription {formatCurrency(invoice.subscriptionFee)} · Commission {formatCurrency(invoice.commissionTotal)} · Orders {invoice.completedOrders}
+                            </p>
+                          </div>
+                          <div className="text-left sm:text-right">
+                            <p className="text-xs uppercase tracking-wide text-gray-400">Total due</p>
+                            <p className="mt-1 text-lg font-semibold text-gray-900">{formatCurrency(invoice.totalDue)}</p>
+                            <p className="mt-1 text-xs text-gray-400">
+                              {invoice.paidAt ? `Paid ${formatDateLabel(invoice.paidAt)}` : `Issued ${formatDateLabel(invoice.issuedAt)}`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-10 text-center text-sm text-gray-500">
+                        No issued invoices yet. Your monthly billing records will appear here once KawilMart generates them.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
+                  <h2 className="font-semibold text-gray-900">Invoice Summary</h2>
+                  <p className="mt-1 text-sm text-gray-500">Outstanding balances and cleared invoices at a glance.</p>
+
+                  <div className="mt-5 space-y-3">
+                    {[
+                      { label: 'Outstanding balance', value: formatCurrency(invoiceSummary.outstandingTotal || 0) },
+                      { label: 'Paid total', value: formatCurrency(invoiceSummary.paidTotal || 0) },
+                      { label: 'Issued invoices', value: invoiceSummary.issuedInvoices || 0 },
+                      { label: 'Overdue invoices', value: invoiceSummary.overdueInvoices || 0 },
+                    ].map((item) => (
+                      <div key={item.label} className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
+                        <span className="text-sm text-gray-600">{item.label}</span>
+                        <span className="font-semibold text-gray-900">{item.value}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </section>

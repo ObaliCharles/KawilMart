@@ -1,6 +1,7 @@
 import { Inngest } from "inngest";
 import connectDB from "./db";
 import User from "@/models/User";
+import { generateSellerInvoicesForPeriod } from "@/lib/sellerInvoiceGeneration";
 
 // Create a client to send and receive events
 export const inngest = new Inngest({ id: "kawilmart-next" });
@@ -79,3 +80,25 @@ export const createUserOrder = inngest.createFunction(
 
     }
 )
+
+export const createMonthlySellerInvoices = inngest.createFunction(
+    {
+        id: "create-monthly-seller-invoices",
+    },
+    { cron: "0 3 1 * *" },
+    async () => {
+        const generation = await generateSellerInvoicesForPeriod({
+            generatedBy: "system",
+            sendNotifications: true,
+            now: new Date(),
+        });
+
+        return {
+            success: true,
+            periodKey: generation.periodKey,
+            createdCount: generation.createdCount,
+            updatedCount: generation.updatedCount,
+            skippedCount: generation.skippedCount,
+        };
+    }
+);

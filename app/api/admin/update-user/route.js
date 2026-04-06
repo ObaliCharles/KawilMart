@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import authAdmin from "@/lib/authAdmin";
 import connectDB from "@/config/db";
 import { getRequestUserId } from "@/lib/requestAuth";
-import { invalidateUserRoleCache } from "@/lib/userRoleCache";
+import { getUserRole, invalidateUserRoleCache } from "@/lib/userRoleCache";
 import User from "@/models/User";
 import {
     RIDER_SUBSCRIPTION_PLANS,
@@ -12,6 +12,11 @@ import {
     SELLER_SUBSCRIPTION_STATUSES,
 } from "@/lib/sellerBilling";
 import { syncUserFromClerk } from "@/lib/clerkUserSync";
+import { notifyUsers } from "@/lib/notifyUsers";
+import {
+    buildAccountUpdateNotification,
+    getChangedAccountFields,
+} from "@/lib/accountNotifications";
 
 const ACTIVE_SELLER_STATUSES = new Set(["active", "trial"]);
 const ACTIVE_RIDER_STATUSES = new Set(["active", "trial"]);
@@ -327,7 +332,13 @@ export async function POST(request) {
             return NextResponse.json({ success: false, message: "User not found" }, { status: 404 });
         }
 
+        const currentRole = await getUserRole(resolvedTargetUserId);
         const sanitizedUpdates = sanitizeUpdates(updates, existingUser, adminUserId);
+        const changedFields = getChangedAccountFields({
+            currentRole,
+            existingUser,
+            updates: sanitizedUpdates,
+        });
 
         const updatedUser = await User.findByIdAndUpdate(
             resolvedTargetUserId,
@@ -335,12 +346,39 @@ export async function POST(request) {
             { new: true }
         );
 
-        if (sanitizedUpdates.role) {
+        if (sanitizedUpdates.role && sanitizedUpdates.role !== currentRole) {
             const client = await clerkClient();
             await client.users.updateUserMetadata(resolvedTargetUserId, {
                 publicMetadata: { role: sanitizedUpdates.role }
             });
             invalidateUserRoleCache(resolvedTargetUserId);
+        }
+
+        const accountNotification = buildAccountUpdateNotification({
+            currentRole,
+            existingUser,
+            updatedUser: {
+                ...(updatedUser?.toObject?.() || updatedUser || {}),
+                role: sanitizedUpdates.role || currentRole || "buyer",
+            },
+            changes: changedFields,
+        });
+
+        if (accountNotification) {
+            await notifyUsers([{
+                userId: resolvedTargetUserId,
+                notification: {
+                    type: "system",
+                    title: accountNotification.title,
+                    message: accountNotification.message,
+                    read: false,
+                    date: new Date(),
+                },
+                emailTitle: accountNotification.emailTitle,
+                emailMessage: accountNotification.emailMessage,
+                ctaLabel: accountNotification.ctaLabel,
+                ctaPath: accountNotification.ctaPath,
+            }]);
         }
 
         return NextResponse.json({

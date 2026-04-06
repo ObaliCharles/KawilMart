@@ -21,7 +21,7 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
   const panelHref = buildCategoryHref(section.value);
 
   return (
-    <div className="pattern-category-sketch-soft col-span-full overflow-hidden rounded-[1.75rem] border border-gray-200 sm:rounded-[2rem]">
+    <div className="pattern-category-sketch-soft col-span-full min-w-0 overflow-hidden rounded-[1.75rem] border border-gray-200 sm:rounded-[2rem]">
       <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
         <div className={`flex flex-col justify-between border-b border-white/70 p-4 sm:p-6 lg:border-b-0 ${reverse ? "lg:order-2 lg:border-l lg:border-r-0 lg:border-white/70" : "lg:border-r lg:border-white/70"}`}>
           <div>
@@ -59,7 +59,7 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
                 Browse more categories
               </p>
-              <div className="grid gap-2 min-[430px]:grid-cols-2 sm:flex sm:flex-wrap">
+              <div className="grid gap-2 min-[360px]:grid-cols-2 sm:flex sm:flex-wrap">
                 {quickCategories.map((category) => {
                   const href = buildCategoryHref(category.value);
 
@@ -70,10 +70,10 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
                       onClick={() => navigate(href)}
                       onMouseEnter={() => prefetchRoute(href)}
                       onFocus={() => prefetchRoute(href)}
-                      className="inline-flex min-w-0 items-center justify-between gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 sm:justify-start"
+                      className="inline-flex w-full min-w-0 items-center justify-between gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 sm:w-auto sm:justify-start"
                     >
                       <span>{category.icon}</span>
-                      <span className="truncate">{category.label}</span>
+                      <span className="min-w-0 truncate [overflow-wrap:anywhere]">{category.label}</span>
                     </button>
                   );
                 })}
@@ -86,7 +86,9 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
           <div className="grid gap-3">
             {section.products.map((product, index) => {
               const productHref = `/product/${product._id}`;
-              const mobileImageColumn = index === 0 ? "grid-cols-[96px_minmax(0,1fr)]" : "grid-cols-[84px_minmax(0,1fr)]";
+              const mobileImageColumn = index === 0
+                ? "grid-cols-[74px_minmax(0,1fr)] min-[380px]:grid-cols-[88px_minmax(0,1fr)]"
+                : "grid-cols-[66px_minmax(0,1fr)] min-[380px]:grid-cols-[80px_minmax(0,1fr)]";
               const desktopImageColumn = index === 0 ? "sm:grid-cols-[132px_minmax(0,1fr)]" : "sm:grid-cols-[92px_minmax(0,1fr)]";
 
               return (
@@ -96,29 +98,29 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
                   onClick={() => navigate(productHref)}
                   onMouseEnter={() => prefetchRoute(productHref)}
                   onFocus={() => prefetchRoute(productHref)}
-                  className={`grid min-w-0 items-center gap-3 rounded-[1.45rem] border border-white/90 bg-white/95 p-3 text-left backdrop-blur-[2px] transition hover:border-orange-300 hover:shadow-sm sm:gap-4 ${mobileImageColumn} ${desktopImageColumn}`}
+                  className={`grid w-full min-w-0 max-w-full items-start gap-2.5 overflow-hidden rounded-[1.45rem] border border-white/90 bg-white/95 p-2.5 text-left backdrop-blur-[2px] transition hover:border-orange-300 hover:shadow-sm min-[380px]:gap-3 min-[380px]:p-3 sm:gap-4 ${mobileImageColumn} ${desktopImageColumn}`}
                 >
-                  <div className="aspect-square overflow-hidden rounded-[1.15rem] bg-[#f5f5f3]">
+                  <div className="aspect-square shrink-0 overflow-hidden rounded-[1.15rem] bg-[#f5f5f3]">
                     <Image
                       src={product.image[0]}
                       alt={product.name}
                       width={260}
                       height={260}
-                      className="h-full w-full object-contain p-2.5 sm:object-cover sm:p-0"
-                      sizes={index === 0 ? "(max-width: 640px) 96px, 132px" : "(max-width: 640px) 84px, 92px"}
+                      className="h-full w-full object-contain p-2.5 md:object-cover md:p-0"
+                      sizes={index === 0 ? "(max-width: 379px) 74px, (max-width: 639px) 88px, 132px" : "(max-width: 379px) 66px, (max-width: 639px) 80px, 92px"}
                     />
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
+                  <div className="min-w-0 overflow-hidden">
+                    <p className="truncate text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
                       {getCategoryMeta(product.category).label}
                     </p>
-                    <p className="mt-1.5 text-sm font-semibold leading-5 text-gray-900 sm:mt-2 sm:leading-6">
+                    <p className="mt-1.5 text-sm font-semibold leading-5 text-gray-900 [overflow-wrap:anywhere] sm:mt-2 sm:leading-6">
                       {product.name}
                     </p>
-                    <p className="mt-1.5 text-xs leading-5 text-gray-500 sm:mt-2 sm:text-sm">
+                    <p className="mt-1.5 text-xs leading-5 text-gray-500 [overflow-wrap:anywhere] sm:mt-2 sm:text-sm">
                       {product.description}
                     </p>
-                    <div className="mt-3 flex items-center justify-between gap-3">
+                    <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
                       <span className="text-sm font-semibold text-orange-700">
                         {formatCurrency(product.offerPrice)}
                       </span>
@@ -194,7 +196,7 @@ const HomeProducts = () => {
         </p>
       </div>
 
-      <div className="mt-6 grid w-full grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="mt-6 grid w-full grid-cols-1 gap-4 min-[420px]:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {Array.from({ length: Math.ceil(featuredProducts.length / PRODUCT_BATCH_SIZE) }).map((_, chunkIndex) => {
           const start = chunkIndex * PRODUCT_BATCH_SIZE
           const chunkProducts = featuredProducts.slice(start, start + PRODUCT_BATCH_SIZE)

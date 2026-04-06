@@ -1,6 +1,6 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import { getRequestUserId } from "@/lib/requestAuth";
-import { invalidateUserRoleCache } from "@/lib/userRoleCache";
+import { getUserRole, invalidateUserRoleCache } from "@/lib/userRoleCache";
 import { NextResponse } from "next/server";
 import authAdmin from "@/lib/authAdmin";
 import connectDB from "@/config/db";
@@ -17,6 +17,9 @@ import {
 } from "@/lib/sellerBilling";
 import { isSupportMessage, sortMessagesByDate } from "@/lib/supportChat";
 import { normalizeOrderStatus, ORDER_STATUSES } from "@/lib/orderLifecycle";
+import { notifyUsers } from "@/lib/notifyUsers";
+import { syncUserFromClerk } from "@/lib/clerkUserSync";
+import { formatRoleLabel, getDashboardPathForRole } from "@/lib/accountNotifications";
 
 export async function GET(request) {
     try {
@@ -182,11 +185,31 @@ export async function POST(request) {
             return NextResponse.json({ success: false, message: "Invalid role" });
         }
 
+        await connectDB();
+        await syncUserFromClerk(targetUserId);
+        const previousRole = await getUserRole(targetUserId);
         const client = await clerkClient();
         await client.users.updateUserMetadata(targetUserId, {
             publicMetadata: { role }
         });
         invalidateUserRoleCache(targetUserId);
+
+        if (previousRole !== role) {
+            await notifyUsers([{
+                userId: targetUserId,
+                notification: {
+                    type: "system",
+                    title: "Role updated",
+                    message: `Your KawilMart role is now ${formatRoleLabel(role)}.`,
+                    read: false,
+                    date: new Date(),
+                },
+                emailTitle: "KawilMart role updated",
+                emailMessage: `Your KawilMart role was updated from ${formatRoleLabel(previousRole || "buyer")} to ${formatRoleLabel(role)}.`,
+                ctaLabel: "Open dashboard",
+                ctaPath: getDashboardPathForRole(role),
+            }]);
+        }
 
         return NextResponse.json({ success: true, message: `Role updated to ${role}` });
     } catch (error) {

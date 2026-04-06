@@ -115,6 +115,20 @@ export async function PUT(request) {
                     });
                 }
 
+                if ([ "FAILED", "CANCELLED" ].includes(transition.nextStatus) && order.riderId) {
+                    outboundNotifications.push({
+                        userId: order.riderId,
+                        notification: getNotification(
+                            transition.nextStatus === "CANCELLED" ? "Delivery cancelled" : "Delivery closed",
+                            `Order #${formatShortOrderId(order._id)} is no longer active for delivery.`
+                        ),
+                        emailTitle: `${transition.nextStatus === "CANCELLED" ? "Delivery cancelled" : "Delivery closed"}: #${formatShortOrderId(order._id)}`,
+                        emailMessage: `Order #${formatShortOrderId(order._id)} is no longer active for delivery after an admin update.`,
+                        ctaLabel: "Open rider dashboard",
+                        ctaPath: "/dashboard/rider",
+                    });
+                }
+
                 if (transition.nextStatus === "FAILED" && order.riderId && previousAssignmentStatus === RIDER_ASSIGNMENT_STATUSES.ACCEPTED) {
                     const riderUser = await User.findById(order.riderId).select("_id riderAvailability");
                     if (riderUser) {
@@ -155,6 +169,20 @@ export async function PUT(request) {
                         }
                     }
 
+                    if (previousRiderId && previousRiderId !== nextRiderId) {
+                        outboundNotifications.push({
+                            userId: previousRiderId,
+                            notification: getNotification(
+                                "Delivery reassigned",
+                                `Order #${formatShortOrderId(order._id)} is no longer assigned to you.`
+                            ),
+                            emailTitle: `Delivery reassigned: #${formatShortOrderId(order._id)}`,
+                            emailMessage: `Order #${formatShortOrderId(order._id)} was reassigned to another rider by an admin.`,
+                            ctaLabel: "Open rider dashboard",
+                            ctaPath: "/dashboard/rider",
+                        });
+                    }
+
                     const shortOrderId = formatShortOrderId(order._id);
                     outboundNotifications.push({
                         userId: nextRiderId,
@@ -184,6 +212,20 @@ export async function PUT(request) {
                             previousRiderUser.riderAvailability = "available";
                             touchedDocs.push(previousRiderUser);
                         }
+                    }
+
+                    if (previousRiderId) {
+                        outboundNotifications.push({
+                            userId: previousRiderId,
+                            notification: getNotification(
+                                "Delivery removed",
+                                `Order #${formatShortOrderId(order._id)} is no longer assigned to you.`
+                            ),
+                            emailTitle: `Delivery removed: #${formatShortOrderId(order._id)}`,
+                            emailMessage: `Order #${formatShortOrderId(order._id)} was removed from your delivery queue by an admin.`,
+                            ctaLabel: "Open rider dashboard",
+                            ctaPath: "/dashboard/rider",
+                        });
                     }
 
                     order.trackingEvents = [

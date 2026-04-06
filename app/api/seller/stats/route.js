@@ -3,9 +3,11 @@ import connectDB from "@/config/db";
 import authSeller from "@/lib/authSeller";
 import { getRequestUserId } from "@/lib/requestAuth";
 import Address from "@/models/Address";
+import BillingInvoice from "@/models/BillingInvoice";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import User from "@/models/User";
+import { getInvoiceSummary, serializeBillingInvoice } from "@/lib/billingInvoices";
 import { buildSellerInvoiceSnapshot, getSellerAccessState, getSellerSubscriptionSnapshot } from "@/lib/sellerBilling";
 import { getSellerRiskSummary } from "@/lib/orderRisk";
 import { ORDER_STATUSES, normalizeOrderStatus } from "@/lib/orderLifecycle";
@@ -40,7 +42,7 @@ export async function GET(request) {
 
     await connectDB();
 
-    const [orders, products, seller] = await Promise.all([
+    const [orders, products, seller, invoiceDocuments] = await Promise.all([
       Order.find({ sellerId: userId })
         .populate({
           path: "address",
@@ -49,6 +51,7 @@ export async function GET(request) {
         .sort({ date: -1 }),
       Product.find({ userId }).sort({ date: -1 }),
       User.findById(userId).lean(),
+      BillingInvoice.find({ sellerId: userId }).sort({ periodStart: -1, createdAt: -1 }).limit(6).lean(),
     ]);
 
     const normalizedOrders = orders.map((order) => ({
@@ -157,6 +160,8 @@ export async function GET(request) {
     const risk = getSellerRiskSummary(normalizedOrders);
     const subscription = getSellerSubscriptionSnapshot(seller);
     const access = getSellerAccessState(seller);
+    const invoices = invoiceDocuments.map((invoice) => serializeBillingInvoice(invoice));
+    const invoiceSummary = getInvoiceSummary(invoices);
 
     return NextResponse.json({
       success: true,
@@ -181,6 +186,8 @@ export async function GET(request) {
         recentOrders,
         recentProducts,
         billing,
+        invoices,
+        invoiceSummary,
         risk,
         subscription: {
           ...subscription,
