@@ -127,22 +127,27 @@ const HomeOfferCollections = () => {
                 />
               </div>
 
-              <div className="p-5 sm:p-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
+              <div className="min-w-0 p-5 sm:p-6">
+                <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <span className="inline-flex rounded-full bg-[#f6f3ee] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
                       {card.badge}
                     </span>
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <p className="text-2xl font-semibold text-gray-900">{card.title}</p>
-                      <SellerTrustBadge sellerProfile={card.heroProduct?.sellerProfile} />
+                    <div className="mt-4 flex min-w-0 flex-col gap-2 min-[420px]:flex-row min-[420px]:flex-wrap min-[420px]:items-center">
+                      <p className="min-w-0 text-2xl font-semibold text-gray-900 [overflow-wrap:anywhere]">{card.title}</p>
+                      <SellerTrustBadge
+                        sellerProfile={card.heroProduct?.sellerProfile}
+                        className="w-fit max-w-full"
+                      />
                     </div>
                     <p className="mt-2 text-sm leading-6 text-gray-600">{card.description}</p>
-                    <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-gray-400">
+                    <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-gray-400 [overflow-wrap:anywhere]">
                       {card.location}
                     </p>
                   </div>
-                  <span className="shrink-0 text-sm font-semibold text-orange-700">{card.footer}</span>
+                  <span className="text-sm font-semibold text-orange-700 sm:shrink-0">
+                    {card.footer}
+                  </span>
                 </div>
 
                 <div className="mt-6 space-y-3">

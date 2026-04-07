@@ -20,9 +20,11 @@ const SellerTrustBadge = ({ sellerProfile, className = "" }) => {
   const tone = sellerProfile?.badgeTone || (sellerProfile?.isVerified ? "emerald" : "slate");
 
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClasses[tone] || toneClasses.emerald} ${className}`}>
-      <span>✓</span>
-      {label}
+    <span className={`inline-flex max-w-full min-w-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClasses[tone] || toneClasses.emerald} ${className}`}>
+      <span className="shrink-0">✓</span>
+      <span className="min-w-0 truncate">
+        {label}
+      </span>
     </span>
   );
 };
