@@ -11,6 +11,7 @@ import Footer from "@/components/seller/Footer";
 import { SellerProductFormSkeleton } from "@/components/dashboard/DashboardSkeletons";
 import { defaultSellerCategory, sellerCategoryGroups } from "@/lib/marketplaceCategories";
 import { getOrderStatusBadgeClass, getOrderStatusDisplay, getPaymentStatusBadgeClass } from "@/lib/orderUi";
+import { downloadAuthenticatedFile } from "@/lib/clientDownloads";
 
 const MetricCard = ({ icon, label, value, sub, color, valueClassName = '' }) => (
   <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
@@ -102,6 +103,7 @@ const AddProductInner = () => {
   const [category, setCategory] = useState(defaultSellerCategory);
   const [price, setPrice] = useState('');
   const [offerPrice, setOfferPrice] = useState('');
+  const [stock, setStock] = useState('');
   const [location, setLocation] = useState('');
   const [sellerContact, setSellerContact] = useState('');
   const [sellerLocation, setSellerLocation] = useState('');
@@ -109,6 +111,8 @@ const AddProductInner = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dashboardStats, setDashboardStats] = useState(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const [invoiceDownloadPeriod, setInvoiceDownloadPeriod] = useState('');
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   const imagePreviews = useMemo(() => (
     [...Array(4)].map((_, index) => (
@@ -126,6 +130,7 @@ const AddProductInner = () => {
     setCategory(defaultSellerCategory);
     setPrice('');
     setOfferPrice('');
+    setStock('');
     setLocation('');
     setSellerContact('');
     setSellerLocation('');
@@ -152,6 +157,7 @@ const AddProductInner = () => {
         setCategory(product.category || defaultSellerCategory);
         setPrice(product.price?.toString() || '');
         setOfferPrice(product.offerPrice?.toString() || '');
+        setStock(product.stock?.toString() || '');
         setLocation(product.location || '');
         setSellerContact(product.sellerContact || '');
         setSellerLocation(product.sellerLocation || '');
@@ -202,6 +208,13 @@ const AddProductInner = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, user, isEditMode]);
 
+  useEffect(() => {
+    const nextPeriod = dashboardStats?.invoicePeriodOptions?.[0] || dashboardStats?.billing?.periodKey || '';
+    if (nextPeriod && !invoiceDownloadPeriod) {
+      setInvoiceDownloadPeriod(nextPeriod);
+    }
+  }, [dashboardStats, invoiceDownloadPeriod]);
+
   const sellerAccess = dashboardStats?.subscription?.access;
   const sellerHasStoreAccess = sellerAccess?.hasAccess ?? true;
 
@@ -223,6 +236,7 @@ const AddProductInner = () => {
     formData.append('category', category);
     formData.append('price', price);
     formData.append('offerPrice', offerPrice);
+    formData.append('stock', stock);
     formData.append('location', location);
     formData.append('sellerContact', sellerContact);
     formData.append('sellerLocation', sellerLocation);
@@ -278,6 +292,27 @@ const AddProductInner = () => {
     formElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const handleInvoiceDownload = async () => {
+    if (!invoiceDownloadPeriod || downloadingInvoice) {
+      return;
+    }
+
+    try {
+      setDownloadingInvoice(true);
+      const token = await getToken();
+      await downloadAuthenticatedFile({
+        url: `/api/seller/invoices/download?periodKey=${encodeURIComponent(invoiceDownloadPeriod)}`,
+        token,
+        fallbackFilename: `kawilmart-seller-invoice-${invoiceDownloadPeriod}.html`,
+      });
+      toast.success('Invoice download started');
+    } catch (error) {
+      toast.error(error.message || 'Failed to download seller invoice');
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
+
   const revenueByDay = dashboardStats?.revenueByDay || [];
   const maxRevenue = Math.max(...revenueByDay.map((day) => day.revenue), 1);
   const categoryEntries = Object.entries(dashboardStats?.categoryBreakdown || {}).sort((a, b) => b[1] - a[1]);
@@ -286,6 +321,7 @@ const AddProductInner = () => {
   const totalOrders = dashboardStats?.totalOrders || 0;
   const totalProducts = dashboardStats?.totalProducts || 0;
   const invoiceHistory = dashboardStats?.invoices || [];
+  const invoicePeriodOptions = dashboardStats?.invoicePeriodOptions || [];
   const invoiceSummary = dashboardStats?.invoiceSummary || {};
 
   return (
@@ -552,6 +588,36 @@ const AddProductInner = () => {
                         <span className="font-semibold text-gray-900">{item.value}</span>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border border-orange-100 bg-orange-50/60 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-600">Download invoice</p>
+                    <p className="mt-1 text-sm text-gray-600">
+                      Choose a month to export your billing document. If that month has not been officially issued yet, KawilMart downloads a live preview using the same seller billing rules.
+                    </p>
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                      <select
+                        value={invoiceDownloadPeriod}
+                        onChange={(event) => setInvoiceDownloadPeriod(event.target.value)}
+                        className="w-full rounded-2xl border border-orange-200 bg-white px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-orange-400"
+                      >
+                        {invoicePeriodOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => void handleInvoiceDownload()}
+                        disabled={!invoiceDownloadPeriod || downloadingInvoice}
+                        className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                          !invoiceDownloadPeriod || downloadingInvoice
+                            ? 'cursor-not-allowed bg-white text-gray-400'
+                            : 'bg-gray-900 text-white hover:bg-black'
+                        }`}
+                      >
+                        {downloadingInvoice ? 'Preparing...' : 'Download month'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -938,6 +1004,21 @@ const AddProductInner = () => {
                     onChange={(e) => setOfferPrice(e.target.value)}
                     value={offerPrice}
                     required
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-base font-medium text-gray-900" htmlFor="stock">
+                    Items Left
+                  </label>
+                  <input
+                    id="stock"
+                    type="number"
+                    min="0"
+                    placeholder="Optional"
+                    className="rounded-xl border border-gray-200 px-3 py-3 outline-none transition focus:border-orange-400"
+                    onChange={(e) => setStock(e.target.value)}
+                    value={stock}
                   />
                 </div>
 

@@ -1,6 +1,7 @@
 import connectDB from "@/config/db";
 import authAdmin from "@/lib/authAdmin";
 import authSeller from "@/lib/authSeller";
+import { parseProductStockInput } from "@/lib/productStock";
 import { getSellerAccessState } from "@/lib/sellerBilling";
 import { getRequestUserId } from "@/lib/requestAuth";
 import { v2 as cloudinary } from "cloudinary";
@@ -49,6 +50,7 @@ export async function POST(request) {
         const category = formData.get('category');
         const price = formData.get('price');
         const offerPrice = formData.get('offerPrice');
+        const stock = parseProductStockInput(formData.get('stock'));
         const location = formData.get('location');
         const sellerContact = formData.get('sellerContact');
         const sellerLocation = formData.get('sellerLocation');
@@ -89,6 +91,7 @@ export async function POST(request) {
             category,
             price: Number(price),
             offerPrice: Number(offerPrice),
+            stock,
             image,
             location,
             sellerContact,

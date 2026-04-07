@@ -1,6 +1,4 @@
-import connectDB from "@/config/db"
-import User from "@/models/User"
-import { clerkClient } from "@clerk/nextjs/server"
+import { getOrSyncDatabaseUser } from "@/lib/clerkUserSync"
 import { getRequestUserId } from "@/lib/requestAuth"
 import { NextResponse } from "next/server"
 
@@ -16,20 +14,10 @@ export async function POST(request) {
 
         const { cartData } = await request.json()
 
-        await connectDB()
-        let user = await User.findById(userId)
+        const user = await getOrSyncDatabaseUser(userId)
 
         if (!user) {
-            // Create user if they don't exist
-            const client = await clerkClient()
-            const clerkUser = await client.users.getUser(userId)
-
-            user = await User.create({
-                _id: userId,
-                name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim(),
-                email: clerkUser.emailAddresses[0]?.emailAddress || '',
-                imageUrl: clerkUser.imageUrl,
-            })
+            return NextResponse.json({ success: false, message: "User not found" }, { status: 404 })
         }
 
         user.cartItems = cartData

@@ -13,6 +13,7 @@ import { ProductDetailSkeleton } from "@/components/PageSkeletons";
 import ProductActivityChips from "@/components/ProductActivityChips";
 import SellerTrustBadge from "@/components/SellerTrustBadge";
 import { getLocationLabel, getProductActivitySnapshot, sortProductsForLiveShowcase } from "@/lib/liveCommerce";
+import { getProductStockSnapshot } from "@/lib/productStock";
 
 const Product = () => {
 
@@ -85,6 +86,8 @@ const Product = () => {
     };
 
     const productActivity = productData ? getProductActivitySnapshot(productData) : null;
+    const stockSnapshot = productData ? getProductStockSnapshot(productData) : null;
+    const isOutOfStock = stockSnapshot?.status === 'out';
     const relatedProducts = sortProductsForLiveShowcase(
         products.filter((product) => product._id !== id)
     ).slice(0, 5);
@@ -106,7 +109,7 @@ const Product = () => {
                         <Image
                             src={mainImage || productData.image[0]}
                             alt={productData.name}
-                            className="aspect-square w-full object-cover mix-blend-multiply"
+                            className="aspect-square w-full bg-[#faf8f4] object-contain p-4"
                             width={1280}
                             height={720}
                             sizes="(max-width: 768px) 100vw, 50vw"
@@ -123,7 +126,7 @@ const Product = () => {
                                 <Image
                                     src={image}
                                     alt={`${productData.name} preview ${index + 1}`}
-                                    className="aspect-square w-full object-cover mix-blend-multiply"
+                                    className="aspect-square w-full bg-[#faf8f4] object-contain p-2"
                                     width={1280}
                                     height={720}
                                     sizes="(max-width: 768px) 22vw, 10vw"
@@ -194,6 +197,12 @@ const Product = () => {
                                         {productData.location || productData.sellerLocation || 'Location pending'}
                                     </td>
                                 </tr>
+                                <tr>
+                                    <td className="text-gray-600 font-medium">Availability</td>
+                                    <td className="text-gray-800/50">
+                                        {stockSnapshot?.label || 'Stock updates soon'}
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -216,10 +225,12 @@ const Product = () => {
                             </div>
                             <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600">
-                                    {productActivity.flashDealCountdownLabel ? 'Deal window' : 'Available in'}
+                                    {stockSnapshot?.hasTrackedStock ? 'Stock level' : productActivity.flashDealCountdownLabel ? 'Deal window' : 'Available in'}
                                 </p>
                                 <p className="mt-1 text-lg font-semibold text-gray-900">
-                                    {productActivity.flashDealCountdownLabel
+                                    {stockSnapshot?.hasTrackedStock
+                                        ? stockSnapshot.label
+                                        : productActivity.flashDealCountdownLabel
                                         ? `Ends in ${productActivity.flashDealCountdownLabel}`
                                         : productActivity.localTrend}
                                 </p>
@@ -284,27 +295,31 @@ const Product = () => {
                     <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                         <button
                             onClick={handleAddToCart}
-                            disabled={!!cartAction}
+                            disabled={!!cartAction || isOutOfStock}
                             className={`w-full rounded-lg py-3.5 transition ${
-                                cartAction
+                                isOutOfStock
+                                    ? 'cursor-not-allowed bg-slate-100 text-slate-500'
+                                    : cartAction
                                     ? 'cursor-wait bg-gray-200 text-gray-500'
                                     : addedFeedback
                                         ? 'bg-emerald-50 text-emerald-700'
                                         : 'bg-gray-100 text-gray-800/80 hover:bg-gray-200'
                             }`}
                         >
-                            {cartAction === 'add' ? 'Adding...' : addedFeedback ? 'Added ✓' : 'Add to Cart'}
+                            {isOutOfStock ? 'Sold out' : cartAction === 'add' ? 'Adding...' : addedFeedback ? 'Added ✓' : 'Add to Cart'}
                         </button>
                         <button
                             onClick={handleBuyNow}
-                            disabled={!!cartAction}
+                            disabled={!!cartAction || isOutOfStock}
                             className={`w-full rounded-lg py-3.5 text-white transition ${
-                                cartAction
+                                isOutOfStock
+                                    ? 'cursor-not-allowed bg-slate-400'
+                                    : cartAction
                                     ? 'cursor-wait bg-orange-400'
                                     : 'bg-orange-500 hover:bg-orange-600'
                             }`}
                         >
-                            {cartAction === 'buy' ? 'Adding...' : 'Buy now'}
+                            {isOutOfStock ? 'Unavailable' : cartAction === 'buy' ? 'Adding...' : 'Buy now'}
                         </button>
                     </div>
                 </div>
@@ -314,7 +329,7 @@ const Product = () => {
                     <p className="text-center text-2xl font-medium sm:text-3xl">Hot <span className="font-medium text-orange-600">Right Now</span></p>
                     <div className="w-28 h-0.5 bg-orange-600 mt-2"></div>
                 </div>
-                <div className="mt-6 grid w-full grid-cols-2 gap-4 pb-14 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 xl:gap-6">
+                <div className="mt-6 grid w-full grid-cols-1 gap-3 pb-14 min-[340px]:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 xl:gap-6">
                     {relatedProducts.map((product) => <ProductCard key={product._id} product={product} />)}
                 </div>
                 <button

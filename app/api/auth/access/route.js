@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { syncUserFromClerk } from "@/lib/clerkUserSync";
 import { getRequestAuth } from "@/lib/requestAuth";
 import { getUserRole } from "@/lib/userRoleCache";
 
@@ -24,6 +25,7 @@ export async function GET(request) {
             sessionClaims?.publicMetadata?.role ||
             sessionClaims?.metadata?.role ||
             null;
+        await Promise.allSettled([syncUserFromClerk(userId)]);
         const role = sessionRole || await getUserRole(userId);
 
         return NextResponse.json({

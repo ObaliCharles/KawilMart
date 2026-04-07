@@ -13,6 +13,7 @@ import {
   getDeliveryModeLabel,
   normalizeDeliveryMode,
 } from "@/lib/orderLifecycle";
+import { getProductStockSnapshot } from "@/lib/productStock";
 import { getRequestUserId } from "@/lib/requestAuth";
 import { NextResponse } from "next/server";
 import { inngest } from "@/config/inngest";
@@ -46,6 +47,8 @@ const sendOrderEvents = (createdOrders, userId, address) => {
 const formatCurrency = (amount) => `UGX ${Number(amount || 0).toLocaleString("en-UG")}`;
 
 export async function POST(request) {
+  const reservedStockAdjustments = [];
+
   try {
     await connectDB();
     const userId = await getRequestUserId(request);
@@ -65,6 +68,7 @@ export async function POST(request) {
     }
 
     const sellerOrders = new Map();
+    const stockAdjustments = new Map();
 
     for (const item of items) {
       const quantity = Number(item.quantity);
@@ -74,6 +78,29 @@ export async function POST(request) {
 
       const product = await Product.findById(item.product);
       if (!product) continue;
+
+      const stockSnapshot = getProductStockSnapshot(product);
+      const reservedStock = stockAdjustments.get(String(product._id)) || 0;
+
+      if (stockSnapshot.hasTrackedStock) {
+        const remainingStock = Math.max(0, (stockSnapshot.value || 0) - reservedStock);
+
+        if (remainingStock <= 0) {
+          return NextResponse.json({
+            success: false,
+            message: `${product.name} is currently out of stock`,
+          }, { status: 409 });
+        }
+
+        if (quantity > remainingStock) {
+          return NextResponse.json({
+            success: false,
+            message: `Only ${remainingStock} item${remainingStock === 1 ? "" : "s"} left for ${product.name}`,
+          }, { status: 409 });
+        }
+
+        stockAdjustments.set(String(product._id), reservedStock + quantity);
+      }
 
       const sellerId = product.userId;
       const price = product.offerPrice || product.price || 0;
@@ -139,7 +166,33 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: "No valid products found" });
     }
 
+    for (const [productId, reservedQuantity] of stockAdjustments.entries()) {
+      const result = await Product.updateOne(
+        { _id: productId, stock: { $gte: reservedQuantity } },
+        { $inc: { stock: -reservedQuantity } }
+      );
+
+      if (result.modifiedCount !== 1) {
+        await Promise.all(
+          reservedStockAdjustments.map(([reservedProductId, quantityReserved]) =>
+            Product.updateOne(
+              { _id: reservedProductId },
+              { $inc: { stock: quantityReserved } }
+            )
+          )
+        );
+
+        return NextResponse.json({
+          success: false,
+          message: "Some items changed stock while you were checking out. Please review your cart and try again.",
+        }, { status: 409 });
+      }
+
+      reservedStockAdjustments.push([productId, reservedQuantity]);
+    }
+
     const createdOrders = await Order.create(orderPayloads);
+    reservedStockAdjustments.length = 0;
     const totalItems = createdOrders.reduce(
       (sum, order) => sum + order.items.reduce((orderSum, item) => orderSum + item.quantity, 0),
       0
@@ -214,6 +267,17 @@ export async function POST(request) {
       deliveryMode: normalizedDeliveryMode,
     });
   } catch (error) {
+    if (reservedStockAdjustments.length) {
+      await Promise.allSettled(
+        reservedStockAdjustments.map(([productId, reservedQuantity]) =>
+          Product.updateOne(
+            { _id: productId },
+            { $inc: { stock: reservedQuantity } }
+          )
+        )
+      );
+    }
+
     console.error("Order API error:", error);
     return NextResponse.json({ success: false, message: error.message });
   }

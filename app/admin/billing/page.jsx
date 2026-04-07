@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useAppContext } from '@/context/AppContext';
+import { downloadAuthenticatedFile } from '@/lib/clientDownloads';
 
 const statusClasses = {
   issued: 'bg-sky-50 text-sky-700',
@@ -48,6 +49,8 @@ export default function AdminBillingPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [periodKey, setPeriodKey] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState('');
+  const [downloadingMonthlyReport, setDownloadingMonthlyReport] = useState(false);
 
   const fetchInvoices = async (overrides = {}) => {
     try {
@@ -128,6 +131,30 @@ export default function AdminBillingPage() {
   const outstandingInvoices = useMemo(() => (
     invoices.filter((invoice) => invoice.status === 'issued' || invoice.status === 'overdue')
   ), [invoices]);
+  const activeDownloadPeriod = periodKey || periodOptions[0] || '';
+
+  const downloadAdminDocument = async (url, fallbackFilename, options = {}) => {
+    try {
+      if (options.invoiceId) {
+        setDownloadingInvoiceId(options.invoiceId);
+      } else {
+        setDownloadingMonthlyReport(true);
+      }
+
+      const token = await getToken();
+      await downloadAuthenticatedFile({
+        url,
+        token,
+        fallbackFilename,
+      });
+      toast.success('Download started');
+    } catch (error) {
+      toast.error(error.message || 'Failed to download billing document');
+    } finally {
+      setDownloadingInvoiceId('');
+      setDownloadingMonthlyReport(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -163,6 +190,21 @@ export default function AdminBillingPage() {
             }`}
           >
             Generate Current Month
+          </button>
+          <button
+            type="button"
+            onClick={() => void downloadAdminDocument(
+              `/api/admin/invoices/download?periodKey=${encodeURIComponent(activeDownloadPeriod)}`,
+              `kawilmart-admin-billing-report-${activeDownloadPeriod || 'month'}.html`
+            )}
+            disabled={downloadingMonthlyReport || !activeDownloadPeriod}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+              downloadingMonthlyReport || !activeDownloadPeriod
+                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                : 'border border-gray-200 bg-white text-gray-700 hover:border-gray-900 hover:text-gray-900'
+            }`}
+          >
+            {downloadingMonthlyReport ? 'Preparing report...' : 'Download Selected Month'}
           </button>
         </div>
       </div>
@@ -288,8 +330,20 @@ export default function AdminBillingPage() {
                       <div className="flex flex-col gap-2">
                         <button
                           type="button"
+                          onClick={() => void downloadAdminDocument(
+                            `/api/admin/invoices/download?invoiceId=${encodeURIComponent(invoice.id)}`,
+                            `${invoice.invoiceNumber || 'invoice'}.html`,
+                            { invoiceId: invoice.id }
+                          )}
+                          disabled={downloadingInvoiceId === invoice.id}
+                          className="rounded-full border border-orange-200 px-3 py-2 text-xs font-medium text-orange-700 transition hover:border-orange-500 hover:text-orange-800"
+                        >
+                          {downloadingInvoiceId === invoice.id ? 'Preparing...' : 'Download invoice'}
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => void runInvoiceAction('send_reminder', { invoiceId: invoice.id }, 'Reminder sent')}
-                          disabled={actingId === invoice.id}
+                          disabled={actingId === invoice.id || downloadingInvoiceId === invoice.id}
                           className="rounded-full border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-gray-900 hover:text-gray-900"
                         >
                           {actingId === invoice.id ? 'Working...' : 'Send reminder'}
@@ -298,7 +352,7 @@ export default function AdminBillingPage() {
                           <button
                             type="button"
                             onClick={() => void runInvoiceAction('mark_paid', { invoiceId: invoice.id }, 'Invoice marked paid')}
-                            disabled={actingId === invoice.id}
+                            disabled={actingId === invoice.id || downloadingInvoiceId === invoice.id}
                             className="rounded-full bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700"
                           >
                             Mark paid
@@ -308,7 +362,7 @@ export default function AdminBillingPage() {
                           <button
                             type="button"
                             onClick={() => void runInvoiceAction('mark_overdue', { invoiceId: invoice.id }, 'Invoice marked overdue')}
-                            disabled={actingId === invoice.id}
+                            disabled={actingId === invoice.id || downloadingInvoiceId === invoice.id}
                             className="rounded-full bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100"
                           >
                             Mark overdue

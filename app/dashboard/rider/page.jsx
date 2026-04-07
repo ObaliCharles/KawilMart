@@ -9,6 +9,7 @@ import { assets } from '@/assets/assets';
 import Link from 'next/link';
 import { RiderDashboardSkeleton } from '@/components/dashboard/DashboardSkeletons';
 import { getOrderStatusBadgeClass, getOrderStatusDisplay, getRiderAssignmentBadgeClass } from '@/lib/orderUi';
+import { downloadAuthenticatedFile } from '@/lib/clientDownloads';
 
 export default function RiderDashboard() {
     const { getToken, user, authReady, formatCurrency } = useAppContext();
@@ -19,6 +20,8 @@ export default function RiderDashboard() {
     const [expandedId, setExpandedId] = useState(null);
     const [riderAvailability, setRiderAvailability] = useState('available');
     const [availabilityUpdating, setAvailabilityUpdating] = useState(false);
+    const [statementPeriodKey, setStatementPeriodKey] = useState('');
+    const [downloadingStatement, setDownloadingStatement] = useState(false);
 
     const fetchDeliveries = async () => {
         try {
@@ -45,6 +48,23 @@ export default function RiderDashboard() {
             void fetchDeliveries();
         }
     }, [authReady, user]);
+
+    useEffect(() => {
+        const currentDate = new Date();
+        const currentPeriod = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+        const completedPeriods = deliveries
+            .filter((delivery) => ['DELIVERED', 'COMPLETED'].includes(delivery.status))
+            .map((delivery) => {
+                const date = new Date(delivery.deliveredAt || delivery.date || Date.now());
+                return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            })
+            .filter(Boolean);
+        const nextPeriod = [currentPeriod, ...completedPeriods].sort((left, right) => right.localeCompare(left))[0];
+
+        if (nextPeriod && !statementPeriodKey) {
+            setStatementPeriodKey(nextPeriod);
+        }
+    }, [deliveries, statementPeriodKey]);
 
     const updateDelivery = async (orderId, payload, successMessage) => {
         setUpdatingId(orderId);
@@ -113,6 +133,39 @@ export default function RiderDashboard() {
     const totalPayout = deliveries
         .filter((delivery) => ['DELIVERED', 'COMPLETED'].includes(delivery.status))
         .reduce((sum, delivery) => sum + (delivery.deliveryPayout || 0), 0);
+    const currentDate = new Date();
+    const currentPeriod = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    const statementPeriodOptions = [...new Set([
+        currentPeriod,
+        ...deliveries
+            .filter((delivery) => ['DELIVERED', 'COMPLETED'].includes(delivery.status))
+            .map((delivery) => {
+                const date = new Date(delivery.deliveredAt || delivery.date || Date.now());
+                return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            })
+            .filter(Boolean),
+    ])].sort((left, right) => right.localeCompare(left));
+
+    const handleStatementDownload = async () => {
+        if (!statementPeriodKey || downloadingStatement) {
+            return;
+        }
+
+        try {
+            setDownloadingStatement(true);
+            const token = await getToken();
+            await downloadAuthenticatedFile({
+                url: `/api/rider/invoices/download?periodKey=${encodeURIComponent(statementPeriodKey)}`,
+                token,
+                fallbackFilename: `kawilmart-rider-statement-${statementPeriodKey}.html`,
+            });
+            toast.success('Statement download started');
+        } catch (error) {
+            toast.error(error.message || 'Failed to download rider statement');
+        } finally {
+            setDownloadingStatement(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -195,6 +248,40 @@ export default function RiderDashboard() {
                             <p className="text-xs text-gray-500">{metric.label}</p>
                         </div>
                     ))}
+                </div>
+
+                <div className="mb-8 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900">Monthly statement</h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Download your delivery earnings and rider subscription summary for any month in your activity history.
+                            </p>
+                        </div>
+                        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                            <select
+                                value={statementPeriodKey}
+                                onChange={(event) => setStatementPeriodKey(event.target.value)}
+                                className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-orange-400 sm:min-w-[220px]"
+                            >
+                                {statementPeriodOptions.map((option) => (
+                                    <option key={option} value={option}>{option}</option>
+                                ))}
+                            </select>
+                            <button
+                                type="button"
+                                onClick={() => void handleStatementDownload()}
+                                disabled={!statementPeriodKey || downloadingStatement}
+                                className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                                    !statementPeriodKey || downloadingStatement
+                                        ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                                        : 'bg-gray-900 text-white hover:bg-black'
+                                }`}
+                            >
+                                {downloadingStatement ? 'Preparing...' : 'Download statement'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="mb-6 flex flex-wrap gap-2">

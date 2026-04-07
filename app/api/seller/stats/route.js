@@ -10,7 +10,7 @@ import User from "@/models/User";
 import { getInvoiceSummary, serializeBillingInvoice } from "@/lib/billingInvoices";
 import { buildSellerInvoiceSnapshot, getSellerAccessState, getSellerSubscriptionSnapshot } from "@/lib/sellerBilling";
 import { getSellerRiskSummary } from "@/lib/orderRisk";
-import { ORDER_STATUSES, normalizeOrderStatus } from "@/lib/orderLifecycle";
+import { getCurrentBillingPeriod, ORDER_STATUSES, normalizeOrderStatus } from "@/lib/orderLifecycle";
 
 const getLastSevenDaysRevenue = (orders) => {
   const dayMs = 86400000;
@@ -42,7 +42,7 @@ export async function GET(request) {
 
     await connectDB();
 
-    const [orders, products, seller, invoiceDocuments] = await Promise.all([
+    const [orders, products, seller, invoiceDocuments, invoicePeriodKeys] = await Promise.all([
       Order.find({ sellerId: userId })
         .populate({
           path: "address",
@@ -52,6 +52,7 @@ export async function GET(request) {
       Product.find({ userId }).sort({ date: -1 }),
       User.findById(userId).lean(),
       BillingInvoice.find({ sellerId: userId }).sort({ periodStart: -1, createdAt: -1 }).limit(6).lean(),
+      BillingInvoice.distinct("periodKey", { sellerId: userId }),
     ]);
 
     const normalizedOrders = orders.map((order) => ({
@@ -162,6 +163,10 @@ export async function GET(request) {
     const access = getSellerAccessState(seller);
     const invoices = invoiceDocuments.map((invoice) => serializeBillingInvoice(invoice));
     const invoiceSummary = getInvoiceSummary(invoices);
+    const invoicePeriodOptions = [...new Set([
+      billing.periodKey || getCurrentBillingPeriod(new Date()).key,
+      ...(invoicePeriodKeys || []),
+    ])].sort((left, right) => right.localeCompare(left));
 
     return NextResponse.json({
       success: true,
@@ -187,6 +192,7 @@ export async function GET(request) {
         recentProducts,
         billing,
         invoices,
+        invoicePeriodOptions,
         invoiceSummary,
         risk,
         subscription: {

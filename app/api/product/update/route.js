@@ -1,6 +1,7 @@
 import connectDB from "@/config/db";
 import authAdmin from "@/lib/authAdmin";
 import authSeller from "@/lib/authSeller";
+import { parseProductStockInput } from "@/lib/productStock";
 import { getSellerAccessState } from "@/lib/sellerBilling";
 import { getRequestUserId } from "@/lib/requestAuth";
 import { v2 as cloudinary } from "cloudinary";
@@ -110,6 +111,7 @@ export async function POST(request) {
         existingProduct.category = formData.get("category");
         existingProduct.price = Number(formData.get("price"));
         existingProduct.offerPrice = Number(formData.get("offerPrice"));
+        existingProduct.stock = parseProductStockInput(formData.get("stock"));
         existingProduct.location = formData.get("location");
         existingProduct.sellerContact = formData.get("sellerContact");
         existingProduct.sellerLocation = formData.get("sellerLocation");

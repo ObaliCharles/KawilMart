@@ -12,10 +12,18 @@ import {
   homeCategoryValues,
   homeOfferCollectionValues,
 } from "@/lib/marketplaceCategories";
+import { getProductStockSnapshot } from "@/lib/productStock";
 import { sortProductsForLiveShowcase } from "@/lib/liveCommerce";
 
 const PRODUCT_BATCH_SIZE = 10;
 const HOME_PRODUCT_LIMIT = 30;
+
+const stockToneClasses = {
+  in_stock: "border-emerald-100 bg-emerald-50 text-emerald-700",
+  low: "border-amber-100 bg-amber-50 text-amber-700",
+  out: "border-slate-200 bg-slate-100 text-slate-600",
+  untracked: "border-gray-200 bg-gray-50 text-gray-500",
+};
 
 const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, prefetchRoute, formatCurrency }) => {
   const panelHref = buildCategoryHref(section.value);
@@ -40,7 +48,7 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
           </div>
 
           <div className="mt-6 space-y-4 sm:mt-8">
-            <div className="grid gap-3 min-[480px]:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 min-[360px]:grid-cols-2 xl:grid-cols-3">
               <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Live offers</p>
                 <p className="mt-2 text-lg font-semibold text-gray-900">{section.productCount}</p>
@@ -49,7 +57,7 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
                 <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">From</p>
                 <p className="mt-2 text-lg font-semibold text-gray-900">{formatCurrency(section.lowestOffer)}</p>
               </div>
-              <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 min-[360px]:col-span-2 xl:col-span-1">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-gray-400">Top match</p>
                 <p className="mt-2 truncate text-lg font-semibold text-gray-900">{section.leadProduct.name}</p>
               </div>
@@ -83,13 +91,10 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
         </div>
 
         <div className={`p-4 sm:p-6 ${reverse ? "lg:order-1" : ""}`}>
-          <div className="grid gap-3">
+          <div className="grid gap-3 min-[540px]:grid-cols-2">
             {section.products.map((product, index) => {
               const productHref = `/product/${product._id}`;
-              const mobileImageColumn = index === 0
-                ? "grid-cols-[74px_minmax(0,1fr)] min-[380px]:grid-cols-[88px_minmax(0,1fr)]"
-                : "grid-cols-[66px_minmax(0,1fr)] min-[380px]:grid-cols-[80px_minmax(0,1fr)]";
-              const desktopImageColumn = index === 0 ? "sm:grid-cols-[132px_minmax(0,1fr)]" : "sm:grid-cols-[92px_minmax(0,1fr)]";
+              const stockSnapshot = getProductStockSnapshot(product);
 
               return (
                 <button
@@ -98,33 +103,36 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
                   onClick={() => navigate(productHref)}
                   onMouseEnter={() => prefetchRoute(productHref)}
                   onFocus={() => prefetchRoute(productHref)}
-                  className={`grid w-full min-w-0 max-w-full items-start gap-2.5 overflow-hidden rounded-[1.45rem] border border-white/90 bg-white/95 p-2.5 text-left backdrop-blur-[2px] transition hover:border-orange-300 hover:shadow-sm min-[380px]:gap-3 min-[380px]:p-3 sm:gap-4 ${mobileImageColumn} ${desktopImageColumn}`}
+                  className="group flex h-full min-w-0 flex-col overflow-hidden rounded-[1.45rem] border border-white/90 bg-white/95 text-left backdrop-blur-[2px] transition hover:border-orange-300 hover:shadow-sm"
                 >
-                  <div className="aspect-square shrink-0 overflow-hidden rounded-[1.15rem] bg-[#f5f5f3]">
+                  <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-[#fff7ed] via-[#f9fafb] to-[#eef2ff] p-4">
+                    <span className={`absolute left-3 top-3 inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${stockToneClasses[stockSnapshot.status] || stockToneClasses.untracked}`}>
+                      {stockSnapshot.shortLabel}
+                    </span>
                     <Image
                       src={product.image[0]}
                       alt={product.name}
                       width={260}
                       height={260}
-                      className="h-full w-full object-contain p-2.5 md:object-cover md:p-0"
-                      sizes={index === 0 ? "(max-width: 379px) 74px, (max-width: 639px) 88px, 132px" : "(max-width: 379px) 66px, (max-width: 639px) 80px, 92px"}
+                      className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
+                      sizes={index === 0 ? "(max-width: 539px) 100vw, (max-width: 1023px) 42vw, 260px" : "(max-width: 539px) 100vw, (max-width: 1023px) 42vw, 220px"}
                     />
                   </div>
-                  <div className="min-w-0 overflow-hidden">
+                  <div className="flex min-w-0 flex-1 flex-col p-3 sm:p-4">
                     <p className="truncate text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
                       {getCategoryMeta(product.category).label}
                     </p>
-                    <p className="mt-1.5 text-sm font-semibold leading-5 text-gray-900 [overflow-wrap:anywhere] sm:mt-2 sm:leading-6">
+                    <p className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-gray-900 [overflow-wrap:anywhere] sm:leading-6">
                       {product.name}
                     </p>
-                    <p className="mt-1.5 text-xs leading-5 text-gray-500 [overflow-wrap:anywhere] sm:mt-2 sm:text-sm">
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-gray-500 [overflow-wrap:anywhere] sm:text-sm">
                       {product.description}
                     </p>
-                    <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <div className="mt-auto flex min-w-0 flex-wrap items-center justify-between gap-2 pt-4">
                       <span className="text-sm font-semibold text-orange-700">
                         {formatCurrency(product.offerPrice)}
                       </span>
-                      <span className="hidden text-xs font-medium text-gray-500 sm:inline">View item →</span>
+                      <span className="text-xs font-medium text-gray-500">View item →</span>
                     </div>
                   </div>
                 </button>
@@ -196,7 +204,7 @@ const HomeProducts = () => {
         </p>
       </div>
 
-      <div className="mt-6 grid w-full grid-cols-1 gap-4 min-[420px]:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="mt-6 grid w-full grid-cols-1 gap-3 min-[340px]:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
         {Array.from({ length: Math.ceil(featuredProducts.length / PRODUCT_BATCH_SIZE) }).map((_, chunkIndex) => {
           const start = chunkIndex * PRODUCT_BATCH_SIZE
           const chunkProducts = featuredProducts.slice(start, start + PRODUCT_BATCH_SIZE)

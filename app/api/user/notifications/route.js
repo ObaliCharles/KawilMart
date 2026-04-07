@@ -1,4 +1,5 @@
 import connectDB from "@/config/db";
+import { getOrSyncDatabaseUser } from "@/lib/clerkUserSync";
 import { getRequestUserId } from "@/lib/requestAuth";
 import User from "@/models/User";
 import { NextResponse } from "next/server";
@@ -10,8 +11,7 @@ export async function GET(request) {
             return NextResponse.json({ success: false, message: "Not authenticated" })
         }
 
-        await connectDB()
-        const user = await User.findById(userId)
+        const user = await getOrSyncDatabaseUser(userId)
 
         if (!user) {
             return NextResponse.json({ success: false, message: "User not found" })
@@ -36,6 +36,12 @@ export async function POST(request) {
         }
 
         const { notificationId, markAllRead = false } = await request.json()
+
+        const user = await getOrSyncDatabaseUser(userId, { select: "_id" })
+
+        if (!user) {
+            return NextResponse.json({ success: false, message: "User not found" })
+        }
 
         await connectDB()
 

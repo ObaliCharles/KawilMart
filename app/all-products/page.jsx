@@ -276,8 +276,8 @@ function AllProductsInner() {
   return (
     <>
       <Navbar />
-      <div className="px-6 md:px-16 lg:px-32 py-8 min-h-screen bg-gray-50/30">
-        <div className="flex items-center justify-between mb-6">
+      <div className="min-h-screen bg-gray-50/30 px-4 py-6 sm:px-6 md:px-10 md:py-8 lg:px-16 xl:px-24">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-2xl font-bold text-gray-900">All Products</p>
             <p className="text-sm text-gray-500 mt-1">
@@ -286,11 +286,11 @@ function AllProductsInner() {
               {selectedSeller ? ` • store offers from ${sellerFilterLabel}` : ""}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
             <select
               value={effectiveSortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-400 bg-white"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400 sm:w-auto"
             >
               {sortOptions.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -298,7 +298,7 @@ function AllProductsInner() {
             </select>
             <button
               onClick={() => setShowMobileFilters(true)}
-              className="md:hidden flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+              className="flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm md:hidden"
             >
               ⚙ Filters
             </button>
@@ -335,9 +335,9 @@ function AllProductsInner() {
           </div>
         )}
 
-        <div className="flex gap-8">
+        <div className="flex flex-col gap-6 md:flex-row md:gap-8">
           {/* Desktop sidebar */}
-          <div className="hidden md:block w-56 flex-shrink-0">
+          <div className="hidden w-56 flex-shrink-0 md:block">
             <div className="sticky top-6 bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
               <FilterPanel />
             </div>
@@ -346,7 +346,7 @@ function AllProductsInner() {
           {/* Mobile filter drawer */}
           {showMobileFilters && (
             <div className="fixed inset-0 z-50 bg-black/50 md:hidden" onClick={() => setShowMobileFilters(false)}>
-              <div className="absolute right-0 top-0 bottom-0 w-72 bg-white p-6 overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="absolute bottom-0 right-0 top-0 w-full max-w-[18rem] overflow-y-auto bg-white p-6" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-6">
                   <p className="font-bold text-lg">Filters</p>
                   <button onClick={() => setShowMobileFilters(false)} className="text-2xl text-gray-400">×</button>
@@ -367,7 +367,7 @@ function AllProductsInner() {
                 <p className="text-sm">Try adjusting your filters</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-14">
+              <div className="grid grid-cols-1 gap-3 pb-14 min-[340px]:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
                 {filteredProducts.map((product, index) => (
                   <ProductCard key={index} product={product} />
                 ))}
