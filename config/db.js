@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
-const DEFAULT_DB_NAME = process.env.MONGODB_DB_NAME || "kawilmart";
+// Preserve the existing data location when the connection string omits a DB name.
+const DEFAULT_DB_NAME = process.env.MONGODB_DB_NAME || "test";
 
 const appendDatabaseName = (uri) => {
   const [base, query = ""] = uri.split("?");

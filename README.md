@@ -51,7 +51,7 @@ KawilMart is a full-stack **Next.js marketplace platform** built for Northern Ug
 
 ## Environment Notes
 
-- `MONGODB_URI` is required. If your URI does not include a database name, the app defaults to `kawilmart` or `MONGODB_DB_NAME`.
+- `MONGODB_URI` is required. If your URI does not include a database name, the app uses `MONGODB_DB_NAME`, which currently defaults to `test` for backward compatibility.
 - `EMAIL_ENABLED=false` keeps email notifications safely disabled while preserving in-app notifications.
 - The active payment flow is `COD`, so no payment gateway keys are required right now.
 
