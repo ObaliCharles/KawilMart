@@ -1,12 +1,14 @@
 'use client'
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { NotificationsPageSkeleton } from "@/components/PageSkeletons";
 import { useAppContext } from "@/context/AppContext";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 
 const formatDateTime = (value) => {
   if (!value) {
@@ -47,6 +49,7 @@ const InboxPage = () => {
     getToken,
     user,
     authReady,
+    isAdmin,
     markNotificationAsRead,
     markAllNotificationsAsRead,
     setUnreadNotificationsCount,
@@ -60,6 +63,7 @@ const InboxPage = () => {
   const [markingAll, setMarkingAll] = useState(false);
   const [supportDraft, setSupportDraft] = useState({ subject: "", content: "" });
   const [sendingSupport, setSendingSupport] = useState(false);
+  const usesAdminSupportQueue = Boolean(isAdmin);
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,
@@ -81,13 +85,20 @@ const InboxPage = () => {
         toast.error(data.message);
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(getApiErrorMessage(error, 'Failed to load notifications'));
     } finally {
       setLoading(false);
     }
   };
 
   const fetchSupportThread = async () => {
+    if (usesAdminSupportQueue) {
+      setSupportMessages([]);
+      setSupportParticipant(null);
+      setSupportLoading(false);
+      return;
+    }
+
     try {
       setSupportLoading(true);
       const token = await getToken();
@@ -102,7 +113,7 @@ const InboxPage = () => {
         toast.error(data.message || 'Failed to load support chat');
       }
     } catch (error) {
-      toast.error(error.message || 'Failed to load support chat');
+      toast.error(getApiErrorMessage(error, 'Failed to load support chat'));
     } finally {
       setSupportLoading(false);
     }
@@ -153,6 +164,11 @@ const InboxPage = () => {
   };
 
   const sendSupportMessage = async () => {
+    if (usesAdminSupportQueue) {
+      toast.error('Open the admin support queue to reply to customers');
+      return;
+    }
+
     if (!supportDraft.content.trim()) {
       return;
     }
@@ -176,7 +192,7 @@ const InboxPage = () => {
       setSupportDraft({ subject: "", content: "" });
       await fetchSupportThread();
     } catch (error) {
-      toast.error(error.message || 'Failed to send support message');
+      toast.error(getApiErrorMessage(error, 'Failed to send support message'));
     } finally {
       setSendingSupport(false);
     }
@@ -188,10 +204,20 @@ const InboxPage = () => {
 
   useEffect(() => {
     if (authReady && user) {
-      void Promise.all([fetchNotifications(), fetchSupportThread()]);
+      const pendingRequests = [fetchNotifications()];
+
+      if (usesAdminSupportQueue) {
+        setSupportMessages([]);
+        setSupportParticipant(null);
+        setSupportLoading(false);
+      } else {
+        pendingRequests.push(fetchSupportThread());
+      }
+
+      void Promise.all(pendingRequests);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authReady, user]);
+  }, [authReady, user, usesAdminSupportQueue]);
 
   if (loading && supportLoading) {
     return (
@@ -279,6 +305,22 @@ const InboxPage = () => {
                 </div>
               ))
             )}
+          </div>
+        ) : usesAdminSupportQueue ? (
+          <div className="rounded-3xl border border-orange-200 bg-orange-50 p-6 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">Admin Support Queue</p>
+            <h2 className="mt-3 text-2xl font-semibold text-gray-900">Support conversations are managed from Admin Management</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600">
+              This inbox page is reserved for your notification feed. To reply to sellers, riders, and customers, open the management support queue where each conversation is tied to a specific account.
+            </p>
+            <div className="mt-5">
+              <Link
+                href="/admin/management"
+                className="inline-flex rounded-full bg-gray-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-black"
+              >
+                Open Admin Management
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">

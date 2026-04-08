@@ -1,3 +1,45 @@
+const isProduction = process.env.NODE_ENV === 'production';
+
+const contentSecurityPolicy = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "font-src 'self' data: https:",
+    "form-action 'self' https:",
+    "frame-ancestors 'self'",
+    "img-src 'self' data: blob: https:",
+    `script-src 'self' 'unsafe-inline'${isProduction ? '' : " 'unsafe-eval'"} https: blob:`,
+    "style-src 'self' 'unsafe-inline' https:",
+    "connect-src 'self' https: wss:",
+    "frame-src 'self' https:",
+    "media-src 'self' data: blob: https:",
+    "object-src 'none'",
+    "worker-src 'self' blob:",
+    ...(isProduction ? ['upgrade-insecure-requests'] : []),
+].join('; ');
+
+const securityHeaders = [
+    {
+        key: 'Content-Security-Policy',
+        value: contentSecurityPolicy,
+    },
+    {
+        key: 'Referrer-Policy',
+        value: 'strict-origin-when-cross-origin',
+    },
+    {
+        key: 'X-Content-Type-Options',
+        value: 'nosniff',
+    },
+    {
+        key: 'X-Frame-Options',
+        value: 'SAMEORIGIN',
+    },
+    {
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=()',
+    },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: false,
@@ -29,6 +71,14 @@ const nextConfig = {
     },
     compiler: {
         removeConsole: process.env.NODE_ENV === 'production',
+    },
+    async headers() {
+        return [
+            {
+                source: '/:path*',
+                headers: securityHeaders,
+            },
+        ];
     },
 };
 

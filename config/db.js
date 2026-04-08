@@ -1,5 +1,38 @@
 import mongoose from "mongoose";
 
+const DEFAULT_DB_NAME = process.env.MONGODB_DB_NAME || "kawilmart";
+
+const appendDatabaseName = (uri) => {
+  const [base, query = ""] = uri.split("?");
+  const normalizedBase = base.replace(/\/+$/, "");
+  const withDatabaseName = normalizedBase.endsWith(`/${DEFAULT_DB_NAME}`)
+    ? normalizedBase
+    : `${normalizedBase}/${DEFAULT_DB_NAME}`;
+
+  return query ? `${withDatabaseName}?${query}` : withDatabaseName;
+};
+
+const resolveMongoUri = () => {
+  const rawUri = process.env.MONGODB_URI?.trim();
+
+  if (!rawUri) {
+    throw new Error("Missing MONGODB_URI environment variable");
+  }
+
+  try {
+    const parsed = new URL(rawUri);
+
+    if (parsed.pathname && parsed.pathname !== "/") {
+      return parsed.toString();
+    }
+
+    parsed.pathname = `/${DEFAULT_DB_NAME}`;
+    return parsed.toString();
+  } catch {
+    return appendDatabaseName(rawUri);
+  }
+};
+
 let cached = global.mongoose;
 
 if (!cached) {
@@ -20,11 +53,14 @@ async function connectDB() {
       family: 4, // Use IPv4, skip trying IPv6
     };
 
+    const mongoUri = resolveMongoUri();
+
     cached.promise = mongoose
-      .connect(`${process.env.MONGODB_URI}/kawilmart`, opts)
-      .then((mongoose) => {
-        console.log('Connected to MongoDB');
-        return mongoose;
+      .connect(mongoUri, opts)
+      .then((mongooseInstance) => mongooseInstance)
+      .catch((error) => {
+        cached.promise = null;
+        throw error;
       });
   }
 

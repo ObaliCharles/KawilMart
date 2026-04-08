@@ -1,18 +1,16 @@
-# DanceCode - A simple eCommerce website
+# KawilMart
 
-KawilMart is private **Next.js eCommerce frontend** project.  
-It provides a modern, fast and customizable shopping UI.  
-This repo is **frontend only** – contributors can improve the design, add new pages, animations and more.
+KawilMart is a full-stack **Next.js marketplace platform** built for Northern Uganda. It supports buyers, sellers, riders, and admins with product management, order operations, billing workflows, notifications, and support chat.
 
 ---
 
 ## Features
 
--   Built with **Next.js + Tailwind CSS**
--   Responsive design
--   Reusable components
--   Customizable layouts and colors
--   Open for contributions (UI/UX, animations, themes, layouts etc.)
+- Multi-role marketplace flows for buyers, sellers, riders, and admins
+- Clerk authentication with role-aware route protection
+- MongoDB models and API routes for products, orders, billing, notifications, and support
+- Cloudinary uploads, Inngest background jobs, email and SMS notifications
+- Cash on Delivery (`COD`) checkout flow
 
 ---
 
@@ -25,35 +23,58 @@ This repo is **frontend only** – contributors can improve the design, add new 
     cd KawilMart
     ```
 
-2. Install dependencies
+2. Copy the environment template and fill in your real keys
+
+    ```bash
+    cp .env.example .env.local
+    ```
+
+    You can also use `.env` if that matches your local workflow.
+
+3. Install dependencies
 
     ```bash
     npm install
     ```
 
-3. Run locally
+4. Run locally
 
     ```bash
     npm run dev
     ```
 
+5. Verify local health
+
+    Open `http://localhost:3000/api/health` to confirm the app can reach MongoDB.
+
 ---
+
+## Environment Notes
+
+- `MONGODB_URI` is required. If your URI does not include a database name, the app defaults to `kawilmart` or `MONGODB_DB_NAME`.
+- `EMAIL_ENABLED=false` keeps email notifications safely disabled while preserving in-app notifications.
+- The active payment flow is `COD`, so no payment gateway keys are required right now.
+
+## Main Services
+
+- Clerk for authentication and role metadata
+- MongoDB with Mongoose for application data
+- Cloudinary for uploads
+- Inngest for background jobs
+- Resend for email notifications
+- Africa's Talking for SMS notifications
 
 ## Contributing
 
-We welcome all kinds of contributions! You can:
+We welcome improvements across product, operations, and UX. Useful contribution areas include:
 
 - Create new pages
-- Improve layouts
-- Add animations and transitions
-- Enhance responsiveness
-- Refactor components
-- Suggest new UI/UX ideas
-- Add themes or color variations
+- Harden API routes and validation
+- Improve layouts and responsiveness
+- Refactor large components
+- Add tests and monitoring
 - Introduce accessibility improvements
-- Add filtering/search features
 - Improve documentation
-
 
 ---
 
@@ -65,4 +86,4 @@ This project is licensed under the **dancecode License**.
 
 ## 🌟 Contributors
 
-Thanks to everyone who contributes to **KawilMart**!
+Thanks to everyone who contributes to **KawilMart**.

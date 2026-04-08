@@ -89,6 +89,16 @@ export async function GET(request) {
         const participantId = normalizeString(searchParams.get("participantId"));
         const targetUserId = isAdmin ? participantId : currentUserId;
 
+        if (isAdmin && !targetUserId) {
+            return NextResponse.json({
+                success: true,
+                message: "Select an account to open support chat",
+                participant: null,
+                messages: [],
+                requiresParticipantSelection: true,
+            });
+        }
+
         if (!targetUserId) {
             return NextResponse.json({ success: false, message: "Select an account to open support chat" }, { status: 400 });
         }
