@@ -4,8 +4,6 @@ import { assets } from '@/assets/assets'
 import Image from 'next/image';
 import { useAppContext } from '@/context/AppContext';
 import { getCategoryMeta } from '@/lib/marketplaceCategories';
-import ProductRating from './ProductRating';
-import ProductActivityChips from './ProductActivityChips';
 import { getProductStockSnapshot } from '@/lib/productStock';
 import SellerTrustBadge from './SellerTrustBadge';
 
@@ -31,7 +29,6 @@ const ProductCard = ({ product }) => {
     const [liking, setLiking] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
     const [addedFeedback, setAddedFeedback] = useState(false);
-    const [descriptionExpanded, setDescriptionExpanded] = useState(false);
     const feedbackTimeoutRef = useRef(null);
 
     const discountPercent = product.price && product.price > product.offerPrice
@@ -43,14 +40,7 @@ const ProductCard = ({ product }) => {
     const stockSnapshot = getProductStockSnapshot(product);
     const isOutOfStock = stockSnapshot.status === 'out';
     const categoryLabel = getCategoryMeta(product.category).label;
-    const description = typeof product.description === "string" ? product.description.trim() : "";
-    const showDescriptionToggle = description.length > 72;
-    const stockToneClassName = {
-        in_stock: 'border-emerald-100 bg-emerald-50 text-emerald-700',
-        low: 'border-amber-100 bg-amber-50 text-amber-700',
-        out: 'border-slate-200 bg-slate-100 text-slate-600',
-        untracked: 'border-gray-200 bg-gray-50 text-gray-500',
-    }[stockSnapshot.status] || 'border-gray-200 bg-gray-50 text-gray-500';
+    const sellerName = product.sellerProfile?.name || "Marketplace seller";
 
     const handleLikeClick = async (e) => {
         e.stopPropagation();
@@ -87,11 +77,6 @@ const ProductCard = ({ product }) => {
         }
     };
 
-    const handleDescriptionToggle = (e) => {
-        e.stopPropagation();
-        setDescriptionExpanded((prev) => !prev);
-    };
-
     useEffect(() => {
         return () => {
             if (feedbackTimeoutRef.current) {
@@ -122,9 +107,11 @@ const ProductCard = ({ product }) => {
                     placeholder="blur"
                     blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+IRjWjBqO6O2mhP//Z"
                 />
-                {discountPercent && (
-                  <span className="absolute left-2 top-2 rounded-full bg-orange-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
-                    -{discountPercent}%
+                {(discountPercent || promotionBadge) && (
+                  <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold text-white shadow-sm ${
+                    discountPercent ? "bg-orange-600" : "bg-gray-900"
+                  }`}>
+                    {discountPercent ? `-${discountPercent}%` : promotionBadge?.label}
                   </span>
                 )}
                 <button
@@ -151,51 +138,13 @@ const ProductCard = ({ product }) => {
                 {product.name}
             </p>
 
-            <div className="mt-2 flex w-full flex-wrap items-center gap-2">
-              {promotionBadge ? (
-                <div className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold ${promotionBadge.className}`}>
-                  {promotionBadge.label}
-                </div>
-              ) : null}
-              <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${stockToneClassName}`}>
-                {stockSnapshot.shortLabel}
-              </span>
+            <div className="mt-2 flex w-full min-w-0 items-center gap-1.5 text-xs text-gray-500">
+              <span className="truncate font-medium text-gray-600">{sellerName}</span>
+              <SellerTrustBadge sellerProfile={product.sellerProfile} variant="icon" />
             </div>
-
-            <ProductActivityChips product={product} compact maxItems={1} className="mt-2" />
-            {description ? (
-              <>
-                {descriptionExpanded ? (
-                  <div className="mt-2 w-full rounded-[1rem] border border-orange-100 bg-orange-50/70 px-3 py-2 text-xs leading-5 text-gray-600 [overflow-wrap:anywhere]">
-                    {description}
-                  </div>
-                ) : (
-                  <p className="mt-2 w-full line-clamp-1 text-xs leading-5 text-gray-500 [overflow-wrap:anywhere] sm:line-clamp-2">
-                    {description}
-                  </p>
-                )}
-                {showDescriptionToggle ? (
-                  <button
-                    type="button"
-                    onClick={handleDescriptionToggle}
-                    aria-expanded={descriptionExpanded}
-                    className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-600 transition hover:bg-orange-50 hover:text-orange-700"
-                  >
-                    {descriptionExpanded ? 'Less' : 'More'}
-                    <span className={`text-[10px] transition-transform ${descriptionExpanded ? 'rotate-180' : ''}`}>⌄</span>
-                  </button>
-                ) : null}
-              </>
-            ) : null}
-
-            <div className="mt-2 flex w-full items-center gap-1.5 text-[11px] text-gray-400">
-              <span>📍</span>
+            <div className="mt-1.5 flex w-full items-center gap-1.5 text-[11px] text-gray-400">
+              <span className="shrink-0">📍</span>
               <span className="truncate">{location}</span>
-            </div>
-            <SellerTrustBadge sellerProfile={product.sellerProfile} className="mt-2 hidden sm:inline-flex" />
-
-            <div className="mt-2">
-              <ProductRating product={product} showMeta={false} />
             </div>
 
             <div className="mt-auto flex w-full flex-col gap-3 pt-3 min-[390px]:flex-row min-[390px]:items-end min-[390px]:justify-between">

@@ -12,18 +12,11 @@ import {
   homeCategoryValues,
   homeOfferCollectionValues,
 } from "@/lib/marketplaceCategories";
-import { getProductStockSnapshot } from "@/lib/productStock";
+import SellerTrustBadge from "@/components/SellerTrustBadge";
 import { sortProductsForLiveShowcase } from "@/lib/liveCommerce";
 
 const PRODUCT_BATCH_SIZE = 10;
 const HOME_PRODUCT_LIMIT = 30;
-
-const stockToneClasses = {
-  in_stock: "border-emerald-100 bg-emerald-50 text-emerald-700",
-  low: "border-amber-100 bg-amber-50 text-amber-700",
-  out: "border-slate-200 bg-slate-100 text-slate-600",
-  untracked: "border-gray-200 bg-gray-50 text-gray-500",
-};
 
 const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, prefetchRoute, formatCurrency }) => {
   const panelHref = buildCategoryHref(section.value);
@@ -94,7 +87,8 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
           <div className="grid gap-3 min-[540px]:grid-cols-2">
             {section.products.map((product, index) => {
               const productHref = `/product/${product._id}`;
-              const stockSnapshot = getProductStockSnapshot(product);
+              const sellerName = product.sellerProfile?.name || "Marketplace seller";
+              const location = product.sellerProfile?.location || product.sellerLocation || product.location || "Location pending";
 
               return (
                 <button
@@ -106,9 +100,6 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
                   className="group flex h-full min-w-0 flex-col overflow-hidden rounded-[1.45rem] border border-white/90 bg-white/95 text-left backdrop-blur-[2px] transition hover:border-orange-300 hover:shadow-sm"
                 >
                   <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-[#fff7ed] via-[#f9fafb] to-[#eef2ff] p-4">
-                    <span className={`absolute left-3 top-3 inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${stockToneClasses[stockSnapshot.status] || stockToneClasses.untracked}`}>
-                      {stockSnapshot.shortLabel}
-                    </span>
                     <Image
                       src={product.image[0]}
                       alt={product.name}
@@ -125,8 +116,12 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
                     <p className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-gray-900 [overflow-wrap:anywhere] sm:leading-6">
                       {product.name}
                     </p>
-                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-gray-500 [overflow-wrap:anywhere] sm:text-sm">
-                      {product.description}
+                    <div className="mt-2 flex min-w-0 items-center gap-1.5 text-xs text-gray-500">
+                      <span className="truncate font-medium text-gray-600">{sellerName}</span>
+                      <SellerTrustBadge sellerProfile={product.sellerProfile} variant="icon" />
+                    </div>
+                    <p className="mt-1 truncate text-[11px] text-gray-400">
+                      {location}
                     </p>
                     <div className="mt-auto flex min-w-0 flex-wrap items-center justify-between gap-2 pt-4">
                       <span className="text-sm font-semibold text-orange-700">

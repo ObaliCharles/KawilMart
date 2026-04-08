@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import Image from "next/image";
 import { getLocationLabel, getProductActivitySnapshot } from "@/lib/liveCommerce";
+import SellerTrustBadge from "@/components/SellerTrustBadge";
 
 const getTimeParts = (milliseconds) => {
   const safeMilliseconds = Math.max(0, milliseconds);
@@ -115,8 +116,8 @@ const FlashDeals = () => {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
         {flashDeals.map((product) => {
           const activity = getProductActivitySnapshot(product);
-          const savingsWidth = Math.max(18, Math.min(100, activity.priceDropPercent || 24));
           const location = getLocationLabel(product.sellerProfile?.location || product.sellerLocation || product.location);
+          const sellerName = product.sellerProfile?.name || "Marketplace seller";
 
           return (
             <div
@@ -152,27 +153,20 @@ const FlashDeals = () => {
 
               <div className="space-y-3 p-4">
                 <div>
-                  <p className="line-clamp-2 text-sm font-semibold leading-6 text-gray-900">{product.name}</p>
+                  <p className="line-clamp-2 text-sm font-semibold leading-5 text-gray-900">{product.name}</p>
+                  <div className="mt-2 flex min-w-0 items-center gap-1.5 text-xs text-gray-500">
+                    <span className="truncate font-medium text-gray-600">{sellerName}</span>
+                    <SellerTrustBadge sellerProfile={product.sellerProfile} variant="icon" />
+                  </div>
+                  <p className="mt-1 truncate text-[11px] text-gray-400">
+                    {location}
+                  </p>
                   <div className="mt-1 flex flex-wrap items-baseline gap-2">
                     <p className="text-sm font-bold text-orange-600">{formatCurrency(product.offerPrice)}</p>
                     {activity.hasDiscount ? (
                       <p className="text-xs text-gray-400 line-through">{formatCurrency(product.price)}</p>
                     ) : null}
                   </div>
-                </div>
-
-                <div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-orange-400 to-orange-600"
-                      style={{ width: `${savingsWidth}%` }}
-                    />
-                  </div>
-                  <p className="mt-1 text-[11px] font-medium text-gray-500">
-                    {activity.hasDiscount
-                      ? `You save ${formatCurrency(activity.savingsAmount)}`
-                      : "Special campaign pricing"}
-                  </p>
                 </div>
 
                 <div className="space-y-1 text-[11px] text-gray-500">
@@ -187,8 +181,6 @@ const FlashDeals = () => {
                       : activity.likesCount > 0
                         ? `${activity.likesCount} shopper like${activity.likesCount === 1 ? "" : "s"}`
                         : "Fresh marketplace pick"}
-                    {" · "}
-                    {location}
                   </p>
                 </div>
               </div>
