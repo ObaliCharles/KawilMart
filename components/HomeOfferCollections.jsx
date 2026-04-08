@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useAppContext } from "@/context/AppContext";
 import { getCategoryMeta } from "@/lib/marketplaceCategories";
 import SellerTrustBadge from "@/components/SellerTrustBadge";
+import AddressMeta from "@/components/AddressMeta";
 
 const categoryPriority = (product) => {
   if (product.isFlashDeal || product.promotionType === "flash_deal") return 0;
@@ -130,7 +131,7 @@ const HomeOfferCollections = () => {
               <div className="min-w-0 p-5 sm:p-6">
                 <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <span className="inline-flex rounded-full bg-[#f6f3ee] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+                    <span className="inline-flex w-fit rounded-full border border-orange-100 bg-orange-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-700 shadow-sm">
                       {card.badge}
                     </span>
                     <div className="mt-4 flex min-w-0 flex-col gap-2 min-[420px]:flex-row min-[420px]:flex-wrap min-[420px]:items-center">
@@ -141,9 +142,12 @@ const HomeOfferCollections = () => {
                       />
                     </div>
                     <p className="mt-2 text-sm leading-6 text-gray-600">{card.description}</p>
-                    <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-gray-400 [overflow-wrap:anywhere]">
+                    <AddressMeta
+                      className="mt-3 text-sm text-gray-500"
+                      textClassName="[overflow-wrap:anywhere]"
+                    >
                       {card.location}
-                    </p>
+                    </AddressMeta>
                   </div>
                   <span className="text-sm font-semibold text-orange-700 sm:shrink-0">
                     {card.footer}

@@ -14,7 +14,7 @@ const OrderSummary = () => {
     getToken,
     user,
     products,
-    cartItems,
+    resolvedCartItems,
     setCartItems,
     authReady,
     formatCurrency,
@@ -34,7 +34,7 @@ const OrderSummary = () => {
 
     const sellerLocations = new Map();
 
-    Object.entries(cartItems).forEach(([productId, quantity]) => {
+    Object.entries(resolvedCartItems).forEach(([productId, quantity]) => {
       if (quantity <= 0) {
         return;
       }
@@ -54,7 +54,7 @@ const OrderSummary = () => {
       sellerLocation,
       address: selectedAddress,
     }), 0);
-  }, [cartItems, deliveryMode, products, selectedAddress]);
+  }, [deliveryMode, products, resolvedCartItems, selectedAddress]);
 
   const totalAmount = cartAmount + estimatedDeliveryFee;
 
@@ -71,7 +71,7 @@ const OrderSummary = () => {
     try {
       if (!selectedAddress) return toast.error("Please select an address");
 
-      const cartItemsArray = Object.entries(cartItems)
+      const cartItemsArray = Object.entries(resolvedCartItems)
         .filter(([key, quantity]) => quantity > 0)
         .map(([key, quantity]) => ({ product: key, quantity }));
 

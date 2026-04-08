@@ -5,6 +5,7 @@ import { useAppContext } from "@/context/AppContext";
 import Image from "next/image";
 import { getLocationLabel, getProductActivitySnapshot } from "@/lib/liveCommerce";
 import SellerTrustBadge from "@/components/SellerTrustBadge";
+import AddressMeta from "@/components/AddressMeta";
 
 const getTimeParts = (milliseconds) => {
   const safeMilliseconds = Math.max(0, milliseconds);
@@ -158,9 +159,12 @@ const FlashDeals = () => {
                     <span className="truncate font-medium text-gray-600">{sellerName}</span>
                     <SellerTrustBadge sellerProfile={product.sellerProfile} variant="icon" />
                   </div>
-                  <p className="mt-1 truncate text-[11px] text-gray-400">
+                  <AddressMeta
+                    className="mt-1 text-[11px] text-gray-400"
+                    textClassName="truncate"
+                  >
                     {location}
-                  </p>
+                  </AddressMeta>
                   <div className="mt-1 flex flex-wrap items-baseline gap-2">
                     <p className="text-sm font-bold text-orange-600">{formatCurrency(product.offerPrice)}</p>
                     {activity.hasDiscount ? (

@@ -8,7 +8,8 @@ import { useAppContext } from "@/context/AppContext";
 
 const Cart = () => {
 
-  const { products, router, cartItems, addToCart, updateCartQuantity, getCartCount, formatCurrency } = useAppContext();
+  const { products, router, addToCart, updateCartQuantity, getCartCount, formatCurrency, resolvedCartItems } = useAppContext();
+  const visibleCartItemIds = Object.keys(resolvedCartItems);
 
   return (
     <>
@@ -40,10 +41,11 @@ const Cart = () => {
                 </tr>
               </thead>
               <tbody>
-                {Object.keys(cartItems).map((itemId) => {
+                {visibleCartItemIds.map((itemId) => {
                   const product = products.find(product => product._id === itemId);
+                  const quantity = resolvedCartItems[itemId];
 
-                  if (!product || cartItems[itemId] <= 0) return null;
+                  if (!product || quantity <= 0) return null;
 
                   return (
                     <tr key={itemId}>
@@ -78,14 +80,14 @@ const Cart = () => {
                       <td className="py-4 md:px-4 px-1 text-gray-600">{formatCurrency(product.offerPrice)}</td>
                       <td className="py-4 md:px-4 px-1">
                         <div className="flex items-center md:gap-2 gap-1">
-                          <button onClick={() => updateCartQuantity(product._id, cartItems[itemId] - 1)}>
+                          <button onClick={() => updateCartQuantity(product._id, quantity - 1)}>
                             <Image
                               src={assets.decrease_arrow}
                               alt="decrease_arrow"
                               className="w-4 h-4"
                             />
                           </button>
-                          <input onChange={e => updateCartQuantity(product._id, Number(e.target.value))} type="number" value={cartItems[itemId]} className="w-8 border text-center appearance-none"></input>
+                          <input onChange={e => updateCartQuantity(product._id, Number(e.target.value))} type="number" value={quantity} className="w-8 border text-center appearance-none"></input>
                           <button onClick={() => addToCart(product._id)}>
                             <Image
                               src={assets.increase_arrow}
@@ -95,13 +97,18 @@ const Cart = () => {
                           </button>
                         </div>
                       </td>
-                      <td className="py-4 md:px-4 px-1 text-gray-600">{formatCurrency(product.offerPrice * cartItems[itemId])}</td>
+                      <td className="py-4 md:px-4 px-1 text-gray-600">{formatCurrency(product.offerPrice * quantity)}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
+          {visibleCartItemIds.length === 0 && (
+            <p className="py-8 text-sm text-gray-500">
+              Your cart is empty or those items are no longer available.
+            </p>
+          )}
           <button onClick={()=> router.push('/all-products')} className="group flex items-center mt-6 gap-2 text-orange-600">
             <Image
               className="group-hover:-translate-x-1 transition"

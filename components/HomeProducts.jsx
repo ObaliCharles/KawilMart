@@ -13,6 +13,7 @@ import {
   homeOfferCollectionValues,
 } from "@/lib/marketplaceCategories";
 import SellerTrustBadge from "@/components/SellerTrustBadge";
+import AddressMeta from "@/components/AddressMeta";
 import { sortProductsForLiveShowcase } from "@/lib/liveCommerce";
 
 const PRODUCT_BATCH_SIZE = 10;
@@ -120,9 +121,12 @@ const CategoryEditorialPanel = ({ section, quickCategories, reverse, navigate, p
                       <span className="truncate font-medium text-gray-600">{sellerName}</span>
                       <SellerTrustBadge sellerProfile={product.sellerProfile} variant="icon" />
                     </div>
-                    <p className="mt-1 truncate text-[11px] text-gray-400">
+                    <AddressMeta
+                      className="mt-1 text-[11px] text-gray-400"
+                      textClassName="truncate"
+                    >
                       {location}
-                    </p>
+                    </AddressMeta>
                     <div className="mt-auto flex min-w-0 flex-wrap items-center justify-between gap-2 pt-4">
                       <span className="text-sm font-semibold text-orange-700">
                         {formatCurrency(product.offerPrice)}

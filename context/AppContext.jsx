@@ -4,6 +4,7 @@ import { Suspense, createContext, startTransition, useCallback, useContext, useE
 import { useAuth, useUser } from "@clerk/nextjs";
 import axios from "axios";
 import { toast } from 'react-hot-toast';
+import { areCartItemsEqual, countCartItems, filterCartItemsByProductIds, normalizeCartItems } from "@/lib/cart";
 
 export const AppContext = createContext();
 const PRODUCT_CACHE_KEY = 'kawilmart_products_cache_v2';
@@ -46,6 +47,11 @@ export const AppContextProvider = (props) => {
     const [loadingUser, setLoadingUser] = useState(false)
     const [isRouteLoading, setIsRouteLoading] = useState(false)
     const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
+    const normalizedCartItems = normalizeCartItems(cartItems)
+    const visibleProductIds = products.map((product) => String(product?._id || "")).filter(Boolean)
+    const resolvedCartItems = loadingProducts && !products.length
+        ? normalizedCartItems
+        : filterCartItemsByProductIds(normalizedCartItems, visibleProductIds)
 
     const persistProductsCache = (nextProducts) => {
         if (typeof window === 'undefined') {
@@ -156,7 +162,7 @@ export const AppContextProvider = (props) => {
 
             if (userResponse.data.success) {
                 setUserData(userResponse.data.user)
-                setCartItems(userResponse.data.user.cartItems)
+                setCartItems(normalizeCartItems(userResponse.data.user.cartItems))
             } else {
                 toast.error(userResponse.data.message)
             }
@@ -312,21 +318,78 @@ export const AppContextProvider = (props) => {
         }
     }
 
+    const persistCartData = useCallback(async (nextCartData) => {
+        const normalizedNextCartData = normalizeCartItems(nextCartData)
+
+        if (!user) {
+            return {
+                success: true,
+                cartItems: normalizedNextCartData,
+            }
+        }
+
+        const token = await getToken()
+        const headers = token ? { Authorization: `Bearer ${token}` } : {}
+        const { data } = await axios.post('/api/cart/update', { cartData: normalizedNextCartData }, {
+            headers
+        })
+
+        return {
+            ...data,
+            cartItems: normalizeCartItems(data?.cartItems ?? normalizedNextCartData),
+        }
+    }, [getToken, user])
+
     const addToCart = async (itemId) => {
-        const previousCartData = structuredClone(cartItems);
-        const cartData = structuredClone(cartItems);
-        cartData[itemId] = (cartData[itemId] || 0) + 1;
+        if (!itemId) {
+            return {
+                success: false,
+                message: "Invalid product",
+            }
+        }
+
+        if (!loadingProducts && !visibleProductIds.includes(String(itemId))) {
+            toast.error("This item is no longer available")
+            return {
+                success: false,
+                message: "Item unavailable",
+            }
+        }
+
+        const previousCartData = normalizeCartItems(cartItems);
+        const cartData = normalizeCartItems({
+            ...previousCartData,
+            [itemId]: (previousCartData[itemId] || 0) + 1,
+        });
         setCartItems(cartData);
 
         if (user) {
             try {
-                const token = await getToken()
-                const headers = token ? { Authorization: `Bearer ${token}` } : {}
-                await axios.post('/api/cart/update', { cartData }, {
-                    headers
-                })
+                const data = await persistCartData(cartData)
+
+                if (!data.success) {
+                    setCartItems(previousCartData)
+                    toast.error(data.message)
+                    return {
+                        success: false,
+                        message: data.message,
+                    }
+                }
+
+                const persistedCartItems = data.cartItems || cartData
+                setCartItems(persistedCartItems)
+
+                if (!areCartItemsEqual(persistedCartItems, cartData)) {
+                    toast.error("That item is no longer available and was removed from your cart")
+                    return {
+                        success: false,
+                        message: data.message || "Item unavailable",
+                        cartData: persistedCartItems,
+                    }
+                }
+
                 toast.success("Item added to cart")
-                return { success: true, cartData }
+                return { success: true, cartData: persistedCartItems }
             } catch (error) {
                 setCartItems(previousCartData)
                 toast.error(error.message)
@@ -342,42 +405,42 @@ export const AppContextProvider = (props) => {
     }
 
     const updateCartQuantity = async (itemId, quantity) => {
-        let cartData = structuredClone(cartItems);
-        if (quantity === 0) {
-            delete cartData[itemId];
-        } else {
-            cartData[itemId] = quantity;
-        }
+        const previousCartData = normalizeCartItems(cartItems);
+        const cartData = normalizeCartItems({
+            ...previousCartData,
+            [itemId]: quantity,
+        });
         setCartItems(cartData)
 
         if (user) {
             try {
-                const token = await getToken()
-                const headers = token ? { Authorization: `Bearer ${token}` } : {}
-                await axios.post('/api/cart/update', { cartData }, {
-                    headers
-                })
+                const data = await persistCartData(cartData)
+
+                if (!data.success) {
+                    setCartItems(previousCartData)
+                    toast.error(data.message)
+                    return
+                }
+
+                setCartItems(data.cartItems || cartData)
                 toast.success("Cart Updated")
             } catch (error) {
+                setCartItems(previousCartData)
                 toast.error(error.message)
             }
         }
     }
 
     const getCartCount = () => {
-        let totalCount = 0;
-        for (const items in cartItems) {
-            if (cartItems[items] > 0) totalCount += cartItems[items];
-        }
-        return totalCount;
+        return countCartItems(resolvedCartItems);
     }
 
     const getCartAmount = () => {
         let totalAmount = 0;
-        for (const items in cartItems) {
+        for (const items in resolvedCartItems) {
             let itemInfo = products.find((product) => product._id === items);
-            if (itemInfo && cartItems[items] > 0) {
-                totalAmount += itemInfo.offerPrice * cartItems[items];
+            if (itemInfo && resolvedCartItems[items] > 0) {
+                totalAmount += itemInfo.offerPrice * resolvedCartItems[items];
             }
         }
         return Math.floor(totalAmount * 100) / 100;
@@ -460,6 +523,44 @@ export const AppContextProvider = (props) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authReady, user])
 
+    useEffect(() => {
+        if (loadingProducts) {
+            return
+        }
+
+        const filteredCartItems = filterCartItemsByProductIds(normalizeCartItems(cartItems), visibleProductIds)
+
+        if (areCartItemsEqual(cartItems, filteredCartItems)) {
+            return
+        }
+
+        let cancelled = false
+        setCartItems(filteredCartItems)
+
+        if (!user) {
+            return () => {
+                cancelled = true
+            }
+        }
+
+        void (async () => {
+            try {
+                const data = await persistCartData(filteredCartItems)
+                if (!cancelled && data?.success && !areCartItemsEqual(filteredCartItems, data.cartItems)) {
+                    setCartItems(data.cartItems)
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Failed to sync cart cleanup:', error)
+                }
+            }
+        })()
+
+        return () => {
+            cancelled = true
+        }
+    }, [cartItems, loadingProducts, persistCartData, user, visibleProductIds])
+
     const value = {
         user, getToken,
         authReady,
@@ -476,7 +577,7 @@ export const AppContextProvider = (props) => {
         userData, fetchUserData,
         products, fetchProductData,
         toggleProductLike,
-        cartItems, setCartItems,
+        cartItems, resolvedCartItems, setCartItems,
         addToCart, updateCartQuantity,
         getCartCount, getCartAmount,
         unreadNotificationsCount, setUnreadNotificationsCount,

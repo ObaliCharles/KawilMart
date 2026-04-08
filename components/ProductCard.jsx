@@ -6,6 +6,7 @@ import { useAppContext } from '@/context/AppContext';
 import { getCategoryMeta } from '@/lib/marketplaceCategories';
 import { getProductStockSnapshot } from '@/lib/productStock';
 import SellerTrustBadge from './SellerTrustBadge';
+import AddressMeta from './AddressMeta';
 
 const getPromotionBadge = (product) => {
     if (product.isFlashDeal || product.promotionType === 'flash_deal') {
@@ -142,10 +143,12 @@ const ProductCard = ({ product }) => {
               <span className="truncate font-medium text-gray-600">{sellerName}</span>
               <SellerTrustBadge sellerProfile={product.sellerProfile} variant="icon" />
             </div>
-            <div className="mt-1.5 flex w-full items-center gap-1.5 text-[11px] text-gray-400">
-              <span className="shrink-0">📍</span>
-              <span className="truncate">{location}</span>
-            </div>
+            <AddressMeta
+              className="mt-1.5 w-full text-[11px] text-gray-400"
+              textClassName="truncate"
+            >
+              {location}
+            </AddressMeta>
 
             <div className="mt-auto flex w-full flex-col gap-3 pt-3 min-[390px]:flex-row min-[390px]:items-end min-[390px]:justify-between">
                 <div className="min-w-0">

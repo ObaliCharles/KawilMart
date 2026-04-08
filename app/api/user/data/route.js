@@ -1,5 +1,6 @@
 import { getOrSyncDatabaseUser } from "@/lib/clerkUserSync";
 import { getRequestUserId } from "@/lib/requestAuth";
+import { persistSanitizedUserCart } from "@/lib/serverCart";
 import { NextResponse } from "next/server";
 
 
@@ -17,7 +18,15 @@ export async function GET(request) {
             return NextResponse.json({ success: false, message: "User not found" })
         }
 
-        return NextResponse.json({ success:true, user})
+        const cartItems = await persistSanitizedUserCart(user)
+
+        return NextResponse.json({
+            success: true,
+            user: {
+                ...user.toObject(),
+                cartItems,
+            },
+        })
 
     } catch (error) {
         return NextResponse.json({ success: false, message: error.message })

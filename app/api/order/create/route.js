@@ -15,6 +15,7 @@ import {
 } from "@/lib/orderLifecycle";
 import { getProductStockSnapshot } from "@/lib/productStock";
 import { getRequestUserId } from "@/lib/requestAuth";
+import { getSellerAccessState } from "@/lib/sellerBilling";
 import { NextResponse } from "next/server";
 import { inngest } from "@/config/inngest";
 import {
@@ -68,6 +69,7 @@ export async function POST(request) {
     }
 
     const sellerOrders = new Map();
+    const sellerAccessCache = new Map();
     const stockAdjustments = new Map();
 
     for (const item of items) {
@@ -78,6 +80,30 @@ export async function POST(request) {
 
       const product = await Product.findById(item.product);
       if (!product) continue;
+
+      const sellerId = String(product.userId || "");
+      if (!sellerId) {
+        continue;
+      }
+
+      if (!sellerAccessCache.has(sellerId)) {
+        const seller = await User.findById(sellerId)
+          .select("_id sellerSubscriptionStatus sellerSubscriptionNextBillingDate sellerAccessUntil")
+          .lean();
+
+        sellerAccessCache.set(
+          sellerId,
+          seller ? getSellerAccessState(seller) : { hasAccess: false, reason: "Seller account is unavailable." }
+        );
+      }
+
+      const sellerAccess = sellerAccessCache.get(sellerId);
+      if (!sellerAccess?.hasAccess) {
+        return NextResponse.json({
+          success: false,
+          message: `${product.name} is unavailable. ${sellerAccess?.reason || "Seller account is paused or inactive."}`,
+        }, { status: 409 });
+      }
 
       const stockSnapshot = getProductStockSnapshot(product);
       const reservedStock = stockAdjustments.get(String(product._id)) || 0;
@@ -102,7 +128,6 @@ export async function POST(request) {
         stockAdjustments.set(String(product._id), reservedStock + quantity);
       }
 
-      const sellerId = product.userId;
       const price = product.offerPrice || product.price || 0;
 
       if (!sellerId || price <= 0) {
