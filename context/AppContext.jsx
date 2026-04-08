@@ -253,7 +253,7 @@ export const AppContextProvider = (props) => {
         }
     }, [authReady, getToken, user])
 
-    const syncAdminAccess = async () => {
+    const refreshAccessState = useCallback(async () => {
         try {
             if (!authReady || !user) {
                 return { success: false, message: 'Not authenticated' }
@@ -261,17 +261,31 @@ export const AppContextProvider = (props) => {
 
             setLoadingUser(true)
             setAccessLoaded(false)
+            const fallbackRole = user.publicMetadata?.role || null
 
             const token = await getToken()
             const headers = token ? { Authorization: `Bearer ${token}` } : {}
-            const { data } = await axios.post('/api/admin/set-admin', {}, { headers })
+            const [userResponse, accessResponse] = await Promise.all([
+                axios.get('/api/user/data', { headers }),
+                axios.get('/api/auth/access', { headers }),
+            ])
 
-            if (data.success) {
-                applyRoleAccess('admin')
-                await fetchUserData()
+            if (accessResponse.data?.success) {
+                const access = accessResponse.data.access
+                applyRoleAccess(access?.role || fallbackRole)
+            } else {
+                applyRoleAccess(fallbackRole)
             }
 
-            return data
+            if (userResponse.data?.success) {
+                setUserData(userResponse.data.user)
+                setCartItems(normalizeCartItems(userResponse.data.user.cartItems))
+            }
+
+            return {
+                success: true,
+                message: 'Access refreshed',
+            }
         } catch (error) {
             return {
                 success: false,
@@ -281,7 +295,7 @@ export const AppContextProvider = (props) => {
             setAccessLoaded(true)
             setLoadingUser(false)
         }
-    }
+    }, [authReady, getToken, user])
 
     const toggleProductLike = async (productId) => {
         try {
@@ -566,7 +580,7 @@ export const AppContextProvider = (props) => {
         authReady,
         accessLoaded,
         resolvedRole,
-        syncAdminAccess,
+        refreshAccessState,
         currency, router,
         navigate, prefetchRoute,
         isRouteLoading, setIsRouteLoading,

@@ -26,7 +26,7 @@ export async function GET(request) {
             sessionClaims?.metadata?.role ||
             null;
         await Promise.allSettled([syncUserFromClerk(userId)]);
-        const role = sessionRole || await getUserRole(userId);
+        const role = await getUserRole(userId) || sessionRole || null;
 
         return NextResponse.json({
             success: true,

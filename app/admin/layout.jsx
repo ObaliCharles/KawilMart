@@ -1,9 +1,9 @@
 'use client'
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
-import { UserButton, useAuth } from '@clerk/nextjs';
+import { UserButton } from '@clerk/nextjs';
 import Image from 'next/image';
 import { assets } from '@/assets/assets';
 import toast from 'react-hot-toast';
@@ -29,21 +29,9 @@ const menuItems = [
 
 const AdminLayout = ({ children }) => {
     const pathname = usePathname();
-    const { user: contextUser, authReady, accessLoaded, isAdmin, loadingUser, resolvedRole, syncAdminAccess } = useAppContext();
-    const { userId } = useAuth();
+    const { user: contextUser, authReady, accessLoaded, isAdmin, loadingUser, resolvedRole, refreshAccessState } = useAppContext();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [autoSyncTried, setAutoSyncTried] = useState(false);
     const accessReady = authReady && accessLoaded && !loadingUser;
-    const canAutoSyncAccess = process.env.NODE_ENV !== 'production';
-
-    useEffect(() => {
-        if (!canAutoSyncAccess || !userId || !accessReady || isAdmin || autoSyncTried) {
-            return;
-        }
-
-        setAutoSyncTried(true);
-        void syncAdminAccess();
-    }, [accessReady, autoSyncTried, canAutoSyncAccess, isAdmin, syncAdminAccess, userId]);
 
     if (!accessReady) {
         return <DashboardShellSkeleton />;
@@ -63,19 +51,19 @@ const AdminLayout = ({ children }) => {
                     </p>
                     <button
                         onClick={async () => {
-                            const data = await syncAdminAccess();
+                            const data = await refreshAccessState();
                             if (data.success) {
                                 toast.success(data.message);
                             } else {
-                                toast.error(data.message || 'Failed to set admin role');
+                                toast.error(data.message || 'Failed to refresh access');
                             }
                         }}
                         className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition font-medium"
                     >
-                        Set Myself as Admin
+                        Refresh Access
                     </button>
                     <p className="text-xs text-gray-500 mt-4">
-                        If your role was already updated in Clerk, click this once or refresh the page to sync access.
+                        Ask an existing admin to grant access in Clerk or the admin tools. If your role was already updated, click refresh access or sign out and back in.
                     </p>
                 </div>
             </div>

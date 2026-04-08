@@ -1,26 +1,13 @@
 'use client'
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { useAppContext } from '@/context/AppContext';
 import toast from 'react-hot-toast';
-import { useAuth } from '@clerk/nextjs';
 import { DashboardShellSkeleton } from '@/components/dashboard/DashboardSkeletons';
 
 const RiderLayout = ({ children }) => {
-  const { authReady, accessLoaded, loadingUser, isRider, resolvedRole, syncAdminAccess } = useAppContext();
-  const { userId } = useAuth();
-  const [autoSyncTried, setAutoSyncTried] = useState(false);
+  const { authReady, accessLoaded, loadingUser, isRider, resolvedRole, refreshAccessState } = useAppContext();
   const accessReady = authReady && accessLoaded && !loadingUser;
-  const canAutoSyncAccess = process.env.NODE_ENV !== 'production';
-
-  useEffect(() => {
-    if (!canAutoSyncAccess || !userId || !accessReady || isRider || autoSyncTried) {
-      return;
-    }
-
-    setAutoSyncTried(true);
-    void syncAdminAccess();
-  }, [accessReady, autoSyncTried, canAutoSyncAccess, isRider, syncAdminAccess, userId]);
 
   if (!accessReady) {
     return <DashboardShellSkeleton showSidebar={false} />;
@@ -36,21 +23,19 @@ const RiderLayout = ({ children }) => {
             Your current role is <strong>{resolvedRole || 'buyer'}</strong>.
             You need a rider or admin role to use the rider dashboard.
           </p>
-          {canAutoSyncAccess && (
-            <button
-              onClick={async () => {
-                const data = await syncAdminAccess();
-                if (data.success) {
-                  toast.success(data.message);
-                } else {
-                  toast.error(data.message || 'Failed to sync admin access');
-                }
-              }}
-              className="w-full mb-3 bg-orange-600 text-white py-3 px-5 rounded-lg hover:bg-orange-700 transition font-medium"
-            >
-              Sync My Admin Access
-            </button>
-          )}
+          <button
+            onClick={async () => {
+              const data = await refreshAccessState();
+              if (data.success) {
+                toast.success(data.message);
+              } else {
+                toast.error(data.message || 'Failed to refresh access');
+              }
+            }}
+            className="w-full mb-3 bg-orange-600 text-white py-3 px-5 rounded-lg hover:bg-orange-700 transition font-medium"
+          >
+            Refresh Access
+          </button>
           <Link href="/" className="inline-flex bg-orange-600 text-white py-3 px-5 rounded-lg hover:bg-orange-700 transition font-medium">
             Back to Store
           </Link>

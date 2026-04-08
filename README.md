@@ -54,6 +54,13 @@ KawilMart is a full-stack **Next.js marketplace platform** built for Northern Ug
 - `MONGODB_URI` is required. If your URI does not include a database name, the app uses `MONGODB_DB_NAME`, which currently defaults to `test` for backward compatibility.
 - `EMAIL_ENABLED=false` keeps email notifications safely disabled while preserving in-app notifications.
 - The active payment flow is `COD`, so no payment gateway keys are required right now.
+- `ENABLE_SELF_ADMIN_BOOTSTRAP` is a dev-only escape hatch and should stay `false` for staging and production.
+
+## Admin Setup
+
+- Seed your first admin in the Clerk dashboard by setting `publicMetadata.role` to `admin`.
+- After that, use the in-app admin management tools for ongoing role changes.
+- Do not rely on self-promotion routes in production.
 
 ## Main Services
 
