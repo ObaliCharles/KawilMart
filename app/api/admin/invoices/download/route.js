@@ -12,6 +12,7 @@ import {
     buildAdminBillingReportDocument,
     buildSellerInvoiceDocument,
 } from "@/lib/billingDocuments";
+import { getAdminBillingDataset } from "@/lib/adminBilling";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,19 +67,18 @@ export async function GET(request) {
             return NextResponse.json({ success: false, message: "Billing month is required" }, { status: 400 });
         }
 
-        const invoices = await BillingInvoice.find({ periodKey }).sort({ createdAt: -1 }).lean();
-        if (!invoices.length) {
+        const dataset = await getAdminBillingDataset({ periodKey, now: new Date() });
+        if (!dataset.invoices.length) {
             return NextResponse.json({
                 success: false,
                 message: `No generated seller invoices were found for ${formatBillingPeriodLabel(periodKey)}.`,
             }, { status: 404 });
         }
 
-        const serializedInvoices = invoices.map((invoice) => serializeBillingInvoice(invoice));
         const document = buildAdminBillingReportDocument({
             periodKey,
             periodLabel: formatBillingPeriodLabel(periodKey),
-            invoices: serializedInvoices,
+            invoices: dataset.invoices,
         });
 
         return buildHtmlResponse(document);

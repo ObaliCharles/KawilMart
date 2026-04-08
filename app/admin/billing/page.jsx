@@ -5,6 +5,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useAppContext } from '@/context/AppContext';
 import { downloadAuthenticatedFile } from '@/lib/clientDownloads';
+import { getApiErrorMessage } from '@/lib/apiErrors';
 
 const statusClasses = {
   issued: 'bg-sky-50 text-sky-700',
@@ -84,7 +85,7 @@ export default function AdminBillingPage() {
         toast.error(data.message || 'Failed to load invoices');
       }
     } catch (error) {
-      toast.error(error.message || 'Failed to load invoices');
+      toast.error(getApiErrorMessage(error, 'Failed to load invoices'));
     } finally {
       setLoading(false);
     }
@@ -99,6 +100,16 @@ export default function AdminBillingPage() {
 
   const runInvoiceAction = async (action, payload = {}, successMessage = 'Invoice updated') => {
     try {
+      if (!action) {
+        toast.error('Billing action is required');
+        return;
+      }
+
+      if (action !== 'generate_invoices' && !payload.invoiceId) {
+        toast.error('Invoice ID is required for this billing action');
+        return;
+      }
+
       if (payload.invoiceId) {
         setActingId(payload.invoiceId);
       } else {
@@ -121,7 +132,7 @@ export default function AdminBillingPage() {
       toast.success(data.message || successMessage);
       await fetchInvoices();
     } catch (error) {
-      toast.error(error.message || 'Billing action failed');
+      toast.error(getApiErrorMessage(error, 'Billing action failed'));
     } finally {
       setActingId('');
       setGenerating(false);
@@ -149,7 +160,7 @@ export default function AdminBillingPage() {
       });
       toast.success('Download started');
     } catch (error) {
-      toast.error(error.message || 'Failed to download billing document');
+      toast.error(getApiErrorMessage(error, 'Failed to download billing document'));
     } finally {
       setDownloadingInvoiceId('');
       setDownloadingMonthlyReport(false);
@@ -275,7 +286,7 @@ export default function AdminBillingPage() {
         {loading ? (
           <div className="px-5 py-16 text-center text-sm text-gray-400">Loading billing records...</div>
         ) : invoices.length === 0 ? (
-          <div className="px-5 py-16 text-center text-sm text-gray-400">No invoices matched your filters.</div>
+          <div className="px-5 py-16 text-center text-sm text-gray-400">No billing records matched your filters.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-[1040px] w-full text-sm">
@@ -292,10 +303,19 @@ export default function AdminBillingPage() {
               </thead>
               <tbody>
                 {invoices.map((invoice) => (
-                  <tr key={invoice.id} className="border-t border-gray-100 align-top">
+                  <tr key={invoice.rowId || invoice.id || `${invoice.sellerId}-${invoice.periodKey}`} className="border-t border-gray-100 align-top">
                     <td className="px-5 py-4">
-                      <p className="font-semibold text-gray-900">{invoice.invoiceNumber}</p>
-                      <p className="mt-1 text-xs text-gray-400">Issued {formatDateLabel(invoice.issuedAt)}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-gray-900">{invoice.invoiceNumber}</p>
+                        {invoice.isPreview ? (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700">
+                            Preview
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-xs text-gray-400">
+                        {invoice.isPreview ? 'Live billing preview' : `Issued ${formatDateLabel(invoice.issuedAt)}`}
+                      </p>
                     </td>
                     <td className="px-5 py-4">
                       <p className="font-semibold text-gray-900">{invoice.sellerSnapshot?.businessName || invoice.sellerSnapshot?.name || 'Seller'}</p>
@@ -328,46 +348,63 @@ export default function AdminBillingPage() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex flex-col gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void downloadAdminDocument(
-                            `/api/admin/invoices/download?invoiceId=${encodeURIComponent(invoice.id)}`,
-                            `${invoice.invoiceNumber || 'invoice'}.html`,
-                            { invoiceId: invoice.id }
-                          )}
-                          disabled={downloadingInvoiceId === invoice.id}
-                          className="rounded-full border border-orange-200 px-3 py-2 text-xs font-medium text-orange-700 transition hover:border-orange-500 hover:text-orange-800"
-                        >
-                          {downloadingInvoiceId === invoice.id ? 'Preparing...' : 'Download invoice'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void runInvoiceAction('send_reminder', { invoiceId: invoice.id }, 'Reminder sent')}
-                          disabled={actingId === invoice.id || downloadingInvoiceId === invoice.id}
-                          className="rounded-full border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-gray-900 hover:text-gray-900"
-                        >
-                          {actingId === invoice.id ? 'Working...' : 'Send reminder'}
-                        </button>
-                        {invoice.status !== 'paid' ? (
+                        {invoice.isPreview ? (
                           <button
                             type="button"
-                            onClick={() => void runInvoiceAction('mark_paid', { invoiceId: invoice.id }, 'Invoice marked paid')}
-                            disabled={actingId === invoice.id || downloadingInvoiceId === invoice.id}
-                            className="rounded-full bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700"
+                            onClick={() => void runInvoiceAction(
+                              'generate_invoices',
+                              { periodKey: invoice.periodKey, sellerId: invoice.sellerId },
+                              'Invoice generated'
+                            )}
+                            disabled={generating || actingId === invoice.id}
+                            className="rounded-full bg-gray-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-black"
                           >
-                            Mark paid
+                            {generating ? 'Generating...' : 'Generate invoice'}
                           </button>
-                        ) : null}
-                        {invoice.status !== 'overdue' && invoice.status !== 'paid' ? (
-                          <button
-                            type="button"
-                            onClick={() => void runInvoiceAction('mark_overdue', { invoiceId: invoice.id }, 'Invoice marked overdue')}
-                            disabled={actingId === invoice.id || downloadingInvoiceId === invoice.id}
-                            className="rounded-full bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100"
-                          >
-                            Mark overdue
-                          </button>
-                        ) : null}
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => void downloadAdminDocument(
+                                `/api/admin/invoices/download?invoiceId=${encodeURIComponent(invoice.id)}`,
+                                `${invoice.invoiceNumber || 'invoice'}.html`,
+                                { invoiceId: invoice.id }
+                              )}
+                              disabled={downloadingInvoiceId === invoice.id}
+                              className="rounded-full border border-orange-200 px-3 py-2 text-xs font-medium text-orange-700 transition hover:border-orange-500 hover:text-orange-800"
+                            >
+                              {downloadingInvoiceId === invoice.id ? 'Preparing...' : 'Download invoice'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void runInvoiceAction('send_reminder', { invoiceId: invoice.id }, 'Reminder sent')}
+                              disabled={actingId === invoice.id || downloadingInvoiceId === invoice.id}
+                              className="rounded-full border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-gray-900 hover:text-gray-900"
+                            >
+                              {actingId === invoice.id ? 'Working...' : 'Send reminder'}
+                            </button>
+                            {invoice.status !== 'paid' ? (
+                              <button
+                                type="button"
+                                onClick={() => void runInvoiceAction('mark_paid', { invoiceId: invoice.id }, 'Invoice marked paid')}
+                                disabled={actingId === invoice.id || downloadingInvoiceId === invoice.id}
+                                className="rounded-full bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700"
+                              >
+                                Mark paid
+                              </button>
+                            ) : null}
+                            {invoice.status !== 'overdue' && invoice.status !== 'paid' ? (
+                              <button
+                                type="button"
+                                onClick={() => void runInvoiceAction('mark_overdue', { invoiceId: invoice.id }, 'Invoice marked overdue')}
+                                disabled={actingId === invoice.id || downloadingInvoiceId === invoice.id}
+                                className="rounded-full bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100"
+                              >
+                                Mark overdue
+                              </button>
+                            ) : null}
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

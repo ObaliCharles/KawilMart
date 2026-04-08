@@ -15,6 +15,7 @@ import {
     serializeBillingInvoice,
 } from "@/lib/billingInvoices";
 import { generateSellerInvoicesForPeriod } from "@/lib/sellerInvoiceGeneration";
+import { getAdminBillingDataset } from "@/lib/adminBilling";
 
 const normalizeString = (value) => (typeof value === "string" ? value.trim() : "");
 
@@ -86,28 +87,26 @@ export async function GET(request) {
             return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
         }
 
-        await connectDB();
         const { searchParams } = new URL(request.url);
-        const query = invoiceQueryFromParams(searchParams);
         const search = normalizeString(searchParams.get("search")).toLowerCase();
-        const invoices = await BillingInvoice.find(query).sort({ periodStart: -1, createdAt: -1 }).lean();
-
-        const filteredInvoices = search
-            ? invoices.filter((invoice) => (
-                String(invoice?.invoiceNumber || "").toLowerCase().includes(search)
-                || String(invoice?.sellerSnapshot?.businessName || "").toLowerCase().includes(search)
-                || String(invoice?.sellerSnapshot?.name || "").toLowerCase().includes(search)
-                || String(invoice?.sellerSnapshot?.email || "").toLowerCase().includes(search)
-            ))
-            : invoices;
-        const serializedInvoices = filteredInvoices.map((invoice) => serializeBillingInvoice(invoice));
+        const status = normalizeString(searchParams.get("status"));
+        const sellerId = normalizeString(searchParams.get("sellerId"));
+        const periodKey = normalizeString(searchParams.get("periodKey"));
+        const dataset = await getAdminBillingDataset({
+            search,
+            status,
+            sellerId,
+            periodKey,
+            now: new Date(),
+        });
 
         return NextResponse.json({
             success: true,
-            invoices: serializedInvoices,
-            summary: getInvoiceSummary(serializedInvoices),
-            periodOptions: [...new Set(serializedInvoices.map((invoice) => invoice.periodKey))],
+            invoices: dataset.invoices,
+            summary: getInvoiceSummary(dataset.invoices),
+            periodOptions: dataset.periodOptions,
             previousPeriodKey: getPreviousBillingPeriod(new Date()).key,
+            activePreviewPeriodKey: dataset.previewPeriodKey,
         });
     } catch (error) {
         return NextResponse.json({ success: false, message: error.message }, { status: 500 });
@@ -126,6 +125,7 @@ export async function POST(request) {
             action,
             periodKey,
             invoiceId,
+            sellerId,
             paymentReference = "",
             paymentNotes = "",
             paidAt,
@@ -137,12 +137,18 @@ export async function POST(request) {
                 periodKey: normalizeString(periodKey),
                 generatedBy: userId,
                 sendNotifications: true,
+                sellerIds: sellerId ? [normalizeString(sellerId)] : [],
                 now: new Date(),
             });
 
+            const generatedCount = generation.createdCount + generation.updatedCount;
+            const scopeLabel = sellerId ? "seller invoice" : "seller invoice";
+
             return NextResponse.json({
                 success: true,
-                message: `Generated ${generation.createdCount + generation.updatedCount} seller invoice${generation.createdCount + generation.updatedCount === 1 ? "" : "s"} for ${formatBillingPeriodLabel(generation.periodKey)}.`,
+                message: generatedCount > 0
+                    ? `Generated ${generatedCount} ${scopeLabel}${generatedCount === 1 ? "" : "s"} for ${formatBillingPeriodLabel(generation.periodKey)}.`
+                    : `No billable seller invoices were generated for ${formatBillingPeriodLabel(generation.periodKey)}.`,
                 ...generation,
             });
         }
